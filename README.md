@@ -14,14 +14,14 @@ A concise guide for effective GitHub collaboration using GitHub Desktop.
 | Term | Definition |
 |------|------------|
 | Repository (Repo) | Project folder containing all files and revision history |
-| Clone | Creating a local copy of a repository |
-| Commit | Saving changes with a descriptive message |
-| Push | Uploading local changes to GitHub |
-| Pull | Downloading changes from GitHub to local machine |
-| Branch | Separate version of code for development |
-| Main/Master | Default/primary branch of project |
+| Clone             | Creating a local copy of a repository |
+| Commit            | Saving changes with a descriptive message |
+| Push              | Uploading local changes to GitHub |
+| Pull              | Downloading changes from GitHub to local machine |
+| Branch            | Separate version of code for development |
+| Main/Master       | Default/primary branch of project |
 | Pull Request (PR) | Proposal to merge changes into another branch |
-| Fork | Personal copy of someone else's repository |
+| Fork              | Personal copy of someone else's repository |
 
 ## Basic Workflow
 ```mermaid
