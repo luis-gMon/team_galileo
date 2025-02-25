@@ -1,4 +1,5 @@
 ```markdown
+```
 # GitHub Quick Guide
 
 A concise guide for effective GitHub collaboration using GitHub Desktop.
@@ -30,6 +31,7 @@ graph LR
     B --> C[Push to GitHub]
     C --> D[Pull Request]
     D --> E[Merge]
+
 ```
 
 ## Branch Workflow
