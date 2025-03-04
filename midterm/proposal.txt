@@ -4,9 +4,9 @@ Our research focuses on developing a comprehensive workout recommendation system
 
 SMART Questions:  hi
 
-    What combination of workout types and durations maximizes calorie burn efficiency for different user profiles (clustered by age, BMI, and fitness level)?
-    How does the relationship between heart rate patterns and calorie burn vary across different workout types, and can this predict optimal workout intensity?
-    Can we establish a correlation between consistent exercise patterns (frequency, type, duration) and improved workout efficiency over time?
+    - What combination of workout types and durations maximizes calorie burn efficiency for different user profiles (clustered by age, BMI, and fitness level)?
+    - How does the relationship between heart rate patterns and calorie burn vary across different workout types, and can this predict optimal workout intensity?
+    - Can we establish a correlation between consistent exercise patterns (frequency, type, duration) and improved workout efficiency over time?
 
 Data Source:
 https://www.kaggle.com/datasets/adilshamim8/workout-and-fitness-tracker-data
