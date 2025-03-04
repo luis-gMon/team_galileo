@@ -1,6 +1,6 @@
 Topic Proposal: Data-Driven Personalized Workout Optimization System
 
-Our research focuses on developing a comprehensive workout recommendation system that optimizes exercise routines based on individual user profiles, physiological responses, and workout efficiency patterns. We aim to create personalized fitness plans that maximize both physical benefits and mood improvements through data-driven analysis.
+Our research focuses on developing a comprehensive workout recommendation system that optimizes exercise routines based on individual user profiles, physiological responses, and workout efficiency patterns. We aim to create personalized fitness plans that maximize both physical benefits and mood improvements through data-driven analysis. Exercise plays a crucial role in maintaining overall health, especially in today's world where obesity rates continue to rise. These plans aim to help the public adopt sustainable fitness routines that improve both physical and mental well-being.
 
 SMART Questions:
 
