@@ -1,0 +1,16 @@
+Topic Proposal: Data-Driven Personalized Workout Optimization System
+
+Our research focuses on developing a comprehensive workout recommendation system that optimizes exercise routines based on individual user profiles, physiological responses, and workout efficiency patterns. We aim to create personalized fitness plans that maximize both physical benefits and mood improvements through data-driven analysis.
+
+SMART Questions:
+
+    What combination of workout types and durations maximizes calorie burn efficiency for different user profiles (clustered by age, BMI, and fitness level)?
+    How does the relationship between heart rate patterns and calorie burn vary across different workout types, and can this predict optimal workout intensity?
+    Can we establish a correlation between consistent exercise patterns (frequency, type, duration) and improved workout efficiency over time?
+
+Data Source:
+https://www.kaggle.com/datasets/adilshamim8/workout-and-fitness-tracker-data
+Our analysis will utilize a comprehensive fitness dataset containing 10,000+ workout sessions from diverse users. The dataset includes key variables such as User ID, demographic information (age, gender, height, weight), workout metrics (type, duration, calories burned), and physiological measurements (heart rate, steps taken).
+
+GitHub Repository:
+https://github.com/luis-gMon/team_galileo
