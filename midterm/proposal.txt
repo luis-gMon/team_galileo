@@ -8,6 +8,7 @@ SMART Questions:  hi
     - How does the relationship between heart rate patterns and calorie burn vary across different workout types, and can this predict optimal workout intensity?
     - How does the relationship between workout duration and intensity vary across different workout types?
     - Can we identify distinct user profiles based on their workout patterns using clustering analysis on workout duration, calorie burn, and heart rate?
+    - Is the average heart rate across different workout types (Cycling, Cardio, Strength, Yoga) or BMI levels the same?
 
 Data Source:
 https://www.kaggle.com/datasets/adilshamim8/workout-and-fitness-tracker-data
