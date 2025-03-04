@@ -2,7 +2,7 @@ Topic Proposal: Data-Driven Personalized Workout Optimization System
 
 Our research focuses on developing a comprehensive workout recommendation system that optimizes exercise routines based on individual user profiles, physiological responses, and workout efficiency patterns. We aim to create personalized fitness plans that maximize both physical benefits and mood improvements through data-driven analysis.
 
-SMART Questions:  hi
+SMART Questions:
 
     - What combination of workout types and durations maximizes calorie burn efficiency for different user profiles (clustered by age, BMI, and fitness level)?
     - How does the relationship between heart rate patterns and calorie burn vary across different workout types, and can this predict optimal workout intensity?
