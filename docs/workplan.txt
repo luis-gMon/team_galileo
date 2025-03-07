@@ -1,0 +1,34 @@
+Team Member 1: Demographics Analysis
+
+    User age distribution
+    Gender distribution
+    Height/Weight analysis
+    BMI calculations and distribution Deliverable: Demographics summary slides + visualizations
+
+Team Member 2: Workout Patterns
+
+    Workout type distribution
+    Duration analysis
+    Popular workout combinations
+    Time-based patterns Deliverable: Workout patterns slides + visualizations
+
+Team Member 3: Performance Metrics
+
+    Calories burned analysis
+    Heart rate patterns
+    Steps taken analysis
+    Efficiency metrics Deliverable: Performance metrics slides + visualizations
+
+Team Member 4: Statistical Analysis & Modeling
+
+    Correlation analysis
+    Basic predictive modeling
+    Statistical tests
+    Key findings Deliverable: Statistical insights slides + visualizations
+
+Team Member 5: Project Management & Integration
+
+    Coordinate team efforts
+    Create presentation template
+    Start executive summary
+    Monitor progress Deliverable: Presentation structure + executive summary
