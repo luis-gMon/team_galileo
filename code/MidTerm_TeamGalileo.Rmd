@@ -1,0 +1,422 @@
+---
+title: "DATS 6101 Midterm Project"
+author: "Venkatesh Nagarjuna, Diluni Peiris, Manoj Kodihalli Venkatesh, Jose Luis Garcia Montero,
+Ella Brown"
+output: html_document
+runtime: shiny
+editor_options: 
+  markdown: 
+    wrap: 85
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This R Markdown document is made interactive using Shiny. Unlike the more traditional
+workflow of creating static reports, you can now create documents that allow your
+readers to change the assumptions underlying your analysis and see the results
+immediately.
+
+To learn more, see [Interactive
+Documents](http://rmarkdown.rstudio.com/authoring_shiny.html).
+
+## Inputs and Outputs
+
+You can embed Shiny inputs and outputs in your document. Outputs are automatically
+updated whenever inputs change. This demonstrates how a standard R plot can be made
+interactive by wrapping it in the Shiny `renderPlot` function. The `selectInput` and
+`sliderInput` functions create the input widgets used to drive the plot.
+
+```{r eruptions, echo=FALSE}
+inputPanel(
+  selectInput("n_breaks", label = "Number of bins:",
+              choices = c(10, 20, 35, 50), selected = 20),
+  
+  sliderInput("bw_adjust", label = "Bandwidth adjustment:",
+              min = 0.2, max = 2, value = 1, step = 0.2)
+)
+
+renderPlot({
+  hist(faithful$eruptions, probability = TRUE, breaks = as.numeric(input$n_breaks),
+       xlab = "Duration (minutes)", main = "Geyser eruption duration")
+  
+  dens <- density(faithful$eruptions, adjust = input$bw_adjust)
+  lines(dens, col = "blue")
+})
+```
+
+## Embedded Application
+
+It's also possible to embed an entire Shiny application within an R Markdown document
+using the `shinyAppDir` function. This example embeds a Shiny application located in
+another directory:
+
+```{r tabsets, echo=FALSE}
+shinyAppDir(
+  system.file("examples/06_tabsets", package = "shiny"),
+  options = list(
+    width = "100%", height = 550
+  )
+)
+```
+
+Note the use of the `height` parameter to determine how much vertical space the
+embedded application should occupy.
+
+You can also use the `shinyApp` function to define an application inline rather then
+in an external directory.
+
+In all of R code chunks above the `echo = FALSE` attribute is used. This is to
+prevent the R code within the chunk from rendering in the document alongside the
+Shiny components.
+
+Loading Libraries
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(gridExtra)
+```
+
+Reading the Data
+
+```{r}
+fitnessdf <- data.frame(read.csv("workout_fitness_tracker_data.csv"))
+```
+
+**Data Pre-processing** \* Removing Redundant Columns \* Renaming Columns \* Updating
+Data Types \* Imputation \* Handling Outliers \* Variable Scaling \* Feature Creation
+\* Feature Selection
+
+**Removing Redundant Columns** The following columns will be removed from the
+dataset. User ID: Unique entries Water Intake (liters), VO2 Max and Body Fat (%):
+Redundant data (same value repeated)
+
+```{r}
+fitnessdf_cleaned <- fitnessdf[, !names(fitnessdf) %in% c("User.ID", "Water.Intake..liters.", "VO2.Max", "Body.Fat....")] 
+```
+
+```{r}
+str(fitnessdf_cleaned)
+```
+
+**Renaming Columns**
+
+```{r}
+colnames(fitnessdf_cleaned)<- c("Age", "Gender","Height_cm","Weight_kg","Workout_Type","Workout_Duration_mins","Calories_Burned",
+                                "Heart_Rate_bpm","Steps_Taken","Distance_km","Workout_Intensity","Sleep_Hours","Daily_Calories_Intake",
+                                "Resting_Heart_Rate_bpm","Mood_Before_Workout","Mood_After_Workout")
+```
+
+**Updating Data Types**
+
+```{r}
+factor_cols <- c("Gender", 
+                 "Workout_Type", 
+                 "Workout_Intensity", 
+                 "Mood_Before_Workout", 
+                 "Mood_After_Workout")
+
+fitnessdf_cleaned[factor_cols] <- lapply(fitnessdf_cleaned[factor_cols], function(x) as.factor(x))
+str(fitnessdf_cleaned)
+```
+
+**Imputation**
+
+```{r}
+missing_report <- data.frame(
+  Column = names(fitnessdf_cleaned),
+  Missing_Count = colSums(is.na(fitnessdf_cleaned)),
+  Missing_Percentage = colSums(is.na(fitnessdf_cleaned)) / nrow(fitnessdf_cleaned) * 100
+  )
+
+print(missing_report) 
+```
+
+\*There are no missing values in the dataset.
+
+**Handling Outliers** TBD
+
+```{r}
+# Select numeric columns
+fitnessdf_numeric <- fitnessdf_cleaned %>% select(where(is.numeric))
+
+# Convert to long format
+fitnessdf_long <- fitnessdf_numeric %>% pivot_longer(
+  cols = everything(),
+  names_to = "Variable",
+  values_to = "Value"
+)
+
+# Create box plots in a grid layout
+ggplot(fitnessdf_long, aes(x = Variable, y = Value, fill = Variable)) +
+  geom_boxplot(outlier.color = "red", outlier.shape = 16, outlier.size = 3) +
+  theme_minimal() +
+  labs(title = "Boxplots of Numeric Columns") +
+  theme(legend.position = "none") +
+  facet_wrap(~Variable, scales = "free",ncol= 3)  # Creates a grid of individual plots
+```
+
+**Variable Scaling** TBD
+
+**Feature Creation** BMI: To categorize the dataset based on BMI categroies as
+Underweight, Normal, Overweight and Obese BMI Category: Four classes as Underweight,
+Normal, Overweight and Obese Age Groups: Based on the dataset(Ages 18-59), 18-30
+years (Youth), 31-45 (Middle age), 46-59 (Senior)
+
+**BMI**
+
+```{r}
+fitnessdf_cleaned$BMI <- fitnessdf_cleaned$Weight_kg / (fitnessdf_cleaned$Height_cm / 100)^2
+```
+
+**BMI Category**
+
+Segmentaing the data based on BMI
+
+```{r}
+
+fitnessdf_cleaned <- fitnessdf_cleaned %>%
+  mutate(BMI_category= case_when(
+     BMI < 18.5 ~ "Underweight",
+     BMI >= 18.5 & BMI < 24.9 ~ "Normal",
+     BMI >= 24.9 & BMI < 29.9 ~ "Overweight",
+     BMI >= 29.9 ~ "Obese"
+
+  )) 
+```
+
+Bar Plot
+
+```{r}
+
+ggplot(fitnessdf_cleaned, aes(x = BMI_category, fill = BMI_category)) +
+  geom_bar() +
+  labs(title = "Distribution of BMI Categories", x = "BMI Category", y = "Count") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set2")  # Adds nice colors
+
+```
+
+**Age Groups**
+
+Age Groups: Based on the dataset(Ages 18-59), 18-30 years (Youth), 31-45 (Middle
+age), 46-59 (Senior)
+
+```{r Q9, include=T}
+fitnessdf_cleaned <- fitnessdf_cleaned %>%
+  mutate(Age_group= case_when(
+     Age <= 30 ~ "Youth",
+     Age >= 31 & Age <= 45 ~ "Middle age",
+     Age >= 46 ~ "Senior"
+  )) 
+```
+
+```{r Q9, include=T}
+head(fitnessdf_cleaned)
+```
+
+```{r Q9, include=T}
+ggplot(fitnessdf_cleaned, aes(x = Calories_Burned)) +
+  geom_histogram(binwidth = 50, color = "black", fill = "green", alpha = 0.7) +
+  labs(title = "Histogram of Baseball Player Weights", x = "Weight", y = "Frequency") +
+  theme_minimal()
+```
+
+```{r}
+
+#Creating a boxplot for gre Scores of Admitted Students Across School Rankings
+ggplot(fitnessdf_cleaned, aes(y = Calories_Burned, x= Workout_type)) +
+  geom_boxplot(outlier.colour = "red", outlier.shape=16, outlier.size=4, fill = "#90EE90")+
+  labs(title = "Boxplot of gre Scores of Admitted Students Across School Rankings", x = "School Rank", y = "gre Score") +
+  theme_minimal() 
+```
+
+##EDA
+
+
+### EDA: Demographic Analysis
+
+```{r}
+# Summary statistics for demographic variables
+demographics_summary <- fitnessdf_cleaned %>% 
+  select(Age, Gender, Height_cm, Weight_kg, BMI_category) %>% 
+  summary()
+print(demographics_summary)
+
+# Age Distribution Histogram
+ggplot(fitnessdf_cleaned, aes(x = Age)) + 
+  geom_histogram(bins = 30, fill = "steelblue", color = "black", alpha = 0.7) +
+  labs(title = "Age Distribution", x = "Age", y = "Count") +
+  theme_minimal()
+
+# Gender Distribution Bar Plot (if the 'gender' column exists)
+if("gender" %in% colnames(fitnessdf_cleaned)){
+  ggplot(fitnessdf_cleaned, aes(x = Gender)) +
+    geom_bar(fill = "coral", color = "black", alpha = 0.7) +
+    labs(title = "Gender Distribution", x = "Gender", y = "Count") +
+    theme_minimal()
+}
+```
+
+
+### EDA: Performance Metrics
+
+```{r}
+# Summary statistics for performance metrics
+performance_summary <- fitnessdf_cleaned %>% 
+  select(Workout_Duration_mins, Calories_Burned, Heart_Rate_bpm) %>% 
+  summary()
+print(performance_summary)
+
+# Scatter Plot: Workout Duration vs. Calorie Burn
+if(all(c("Workout_Duration_mins", "Calories_Burned") %in% colnames(fitnessdf_cleaned))){
+  ggplot(fitnessdf_cleaned, aes(x = workout_duration, y = Calories_Burned)) +
+    geom_point(alpha = 0.6, color = "darkgreen") +
+    labs(title = "Workout Duration vs. Calorie Burn", 
+         x = "Workout Duration (min)", y = "Calories Burned") +
+    theme_minimal()
+}
+
+# Heart Rate Distribution Histogram
+if("heart_rate" %in% colnames(fitnessdf_cleaned)){
+  ggplot(fitnessdf_cleaned, aes(x = Heart_Rate_bpm)) +
+    geom_histogram(bins = 30, fill = "purple", color = "black", alpha = 0.7) +
+    labs(title = "Heart Rate Distribution", 
+         x = "Heart Rate (bpm)", y = "Frequency") +
+    theme_minimal()
+}
+```
+
+### EDA: Workout Patterns
+
+```{r}
+# Frequency of Workout Types (if the 'workout_type' column exists)
+if("Workout_type" %in% colnames(fitnessdf_cleaned)){
+  ggplot(fitnessdf_cleaned, aes(x = Workout_type)) +
+    geom_bar(fill = "orange", color = "black", alpha = 0.7) +
+    labs(title = "Frequency of Workout Types", 
+         x = "Workout Type", y = "Count") +
+    theme_minimal()
+  
+  # Boxplot: Workout Duration by Workout Type
+  ggplot(fitnessdf_cleaned, aes(x = Workout_type, y = Workout_Duration_mins)) +
+    geom_boxplot(fill = "lightblue", alpha = 0.7) +
+    labs(title = "Workout Duration by Workout Type", 
+         x = "Workout Type", y = "Duration (min)") +
+    theme_minimal()
+}
+```
+
+##Statistical Testing
+
+**SMART Q4**
+
+1\. Does the workout type affects differently Relationship between workout type and
+BMI Category
+
+Effects of workout type on different BMI categories [Factorial ANOVA]
+
+Factor 1: BMI Category - Underweight, Normal, Overweight and Obese
+
+Factor 2 : Workout Type - Cycling, Cardio, HIIT, Strength, Yoga, Running
+
+Dependent Variable: Calories_Burned
+
+[Main Effects]{.underline}
+
+BMI Category:
+
+$$
+H_0: \mu_{underweight} = \mu_{normal} = \mu_{overweight} = \mu_{obese}
+$$\
+$$
+H_1: \text{ At least one mean is different}
+$$
+
+The calorie burn is the same for all BMI levels.
+
+```{r}
+#Boxplot: Calories_Burned across different BMI levels 
+ggplot(fitnessdf_cleaned, aes(y = Calories_Burned, x= BMI_category)) +
+  geom_boxplot(outlier.colour = "red", outlier.shape=16, outlier.size=4, fill = "#90EE90")+
+  labs(title = "Boxplot of Calories_Burned across different BMI Categories", x = "BMI_category", y = "Calories_Burned") +
+  theme_minimal() 
+```
+
+Workout Type:
+
+$$
+H_0: \mu_{cycling} = \mu_{Cardio} = \mu_{HIIT} = \mu_{Strengh} = \mu_{yoga} = \mu_{running} 
+$$
+
+$$
+H_1: \text{ At least one mean is different}
+$$
+
+The calorie burn is the same for all workout types.
+
+```{r}
+#Boxplot: Boxplot ofCalories_Burned across different Workout types 
+ggplot(fitnessdf_cleaned, aes(y = Calories_Burned, x= Workout_type)) +
+  geom_boxplot(outlier.colour = "red", outlier.shape=16, outlier.size=4, fill = "lightblue")+
+  labs(title = "Boxplot of Calories_Burned across different Workout types", x = "Workout_type", y = "Calories_Burned") +
+  theme_minimal() 
+```
+
+[Interaction Effect]{.underline}
+
+$$
+H_0:  \text{There is no interaction between BMI level and workout type on Calorie burn}
+$$
+
+$$
+H_1:  \text{There is an interaction between BMI level and workout type on Calorie burn}
+$$
+
+The workout type does not have an influence on Calorie burn based on BMI Levels.
+
+```{r, include=T}
+# Run factorial ANOVA
+result <- aov(Calories_Burned ~ BMI_category * Workout_type, data = fitnessdf_cleaned)
+```
+
+```{r, include=T}
+# Run factorial ANOVA
+summary(result)
+```
+
+Based on the Results;(Testing at 95% significance level)
+
+1\. Main effects
+
+-   BMI Level: Cannot Reject HO as P value is > 0.05,The avarage Calarie burn is equal among different BMI levels.
+-   Workout Type: Cannot Reject HO as P value is > 0.05, The avarage Calarie burn is equal among different Workout types.
+
+2. Interaction Effect
+
+-  Cannot Reject HO as P value is > 0.05, Different BMI groups respond the same to different workout types.
+
+
+**SMART Q5**
+Link between poor sleep (fewer hours and higher resting heart rate)
+Source: https://pmc.ncbi.nlm.nih.gov/articles/PMC7680518/
+
+Maybe remove this
+```{r, include=T}
+# Scatter Plot
+ggplot(fitnessdf_cleaned, aes(x = Sleep_Hours, y = Resting_Heart_Rate_bpm)) +
+    geom_point(alpha = 0.6, color = "darkgreen") +
+    labs(title = "Sleep Hours vs. Resting Heart Rate (bpm)", 
+         x = "Sleep_Hours", y = "Resting Heart Rate (bpm)") +
+    theme_minimal()
+```
+
+
+```{r, include=T}
+cor(fitnessdf_cleaned$Sleep_Hours,fitnessdf_cleaned$Resting_Heart_Rate_bpm)
+```
+
+Coefficient - -0.0125. It is negatively correlated as expected, however the strength of the relationship is low.
