@@ -413,6 +413,70 @@ Print(summary(model))
 
 
 ```
+**SMART Q2**
+How does the relationship between heart rate patterns and calorie burn vary across different workout types, and can this predict optimal workout intensity?
+
+```{r}
+
+# Create a new variable for heart rate efficiency
+fitnessdf_cleaned <- fitnessdf_cleaned %>%
+  mutate(Heart_Rate_Efficiency = Calories_Burned / Heart_Rate_bpm)
+
+# Basic summary of heart rate efficiency by workout type
+hr_efficiency_summary <- fitnessdf_cleaned %>%
+  group_by(Workout_Type) %>%
+  summarise(
+    Mean_HR_Efficiency = mean(Heart_Rate_Efficiency, na.rm = TRUE),
+    Median_HR_Efficiency = median(Heart_Rate_Efficiency, na.rm = TRUE),
+    SD_HR_Efficiency = sd(Heart_Rate_Efficiency, na.rm = TRUE)
+  ) %>%
+  arrange(desc(Mean_HR_Efficiency))
+
+print("Summary of Heart Rate Efficiency by Workout Type:")
+print(hr_efficiency_summary)
+
+# Visualize heart rate efficiency by workout type
+ggplot(fitnessdf_cleaned, aes(x = Workout_Type, y = Heart_Rate_Efficiency, fill = Workout_Type)) +
+  geom_boxplot() +
+  labs(title = "Heart Rate Efficiency by Workout Type",
+       x = "Workout Type",
+       y = "Heart Rate Efficiency (Calories/BPM)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Examine the relationship between heart rate and calorie burn
+ggplot(fitnessdf_cleaned, aes(x = Heart_Rate_bpm, y = Calories_Burned, color = Workout_Type)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Heart Rate vs. Calories Burned by Workout Type",
+       x = "Heart Rate (BPM)",
+       y = "Calories Burned") +
+  theme_minimal()
+
+# Linear regression model
+model_hr <- lm(Calories_Burned ~ Heart_Rate_bpm + Workout_Type + Workout_Intensity, data = fitnessdf_cleaned)
+summary(model_hr)
+
+# Visualize the effect of workout intensity on heart rate efficiency
+ggplot(fitnessdf_cleaned, aes(x = Workout_Intensity, y = Heart_Rate_Efficiency, fill = Workout_Type)) +
+  geom_boxplot() +
+  labs(title = "Heart Rate Efficiency by Workout Intensity and Type",
+       x = "Workout Intensity",
+       y = "Heart Rate Efficiency (Calories/BPM)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Examine the relationship between workout duration and heart rate
+ggplot(fitnessdf_cleaned, aes(x = Workout_Duration_mins, y = Heart_Rate_bpm, color = Workout_Intensity)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Workout Duration vs. Heart Rate by Intensity",
+       x = "Workout Duration (minutes)",
+       y = "Heart Rate (BPM)") +
+  theme_minimal()
+
+```
+
 
 **SMART Q1, Q2, Q3**
 
