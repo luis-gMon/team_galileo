@@ -315,6 +315,62 @@ if("Workout_Type" %in% colnames(fitnessdf_cleaned)){
 }
 ```
 
+
+## EDA: Gender Mean differences
+
+```{r}
+fitnessdf_gender <- fitnessdf_cleaned %>%
+  filter(Gender %in% c("Male", "Female"))
+
+gender_summaries <- fitnessdf_gender %>%
+  group_by(Gender) %>%
+  summarise(
+    count = n(),
+    mean_height = mean(Height_cm),
+    sd_height = sd(Height_cm),
+    mean_weight = mean(Weight_kg),
+    sd_weight = sd(Weight_kg),
+    mean_calories = mean(Calories_Burned),
+    sd_calories = sd(Calories_Burned),
+    mean_duration = mean(Workout_Duration_mins),
+    sd_duration = sd(Workout_Duration_mins)
+  )
+
+print("Summary Statistics by Gender:")
+print(gender_summaries)
+
+# Perform t-tests for various metrics
+t_test_results <- list(
+  Height = t.test(Height_cm ~ Gender, data = fitnessdf_gender),
+  Weight = t.test(Weight_kg ~ Gender, data = fitnessdf_gender),
+  Duration = t.test(Workout_Duration_mins ~ Gender, data = fitnessdf_gender),
+  Calories = t.test(Calories_Burned ~ Gender, data = fitnessdf_gender),
+  Heart_Rate = t.test(Heart_Rate_bpm ~ Gender, data = fitnessdf_gender),
+  Steps = t.test(Steps_Taken ~ Gender, data = fitnessdf_gender),
+  Distance = t.test(Distance_km ~ Gender, data = fitnessdf_gender),
+  Sleep = t.test(Sleep_Hours ~ Gender, data = fitnessdf_gender),
+  Daily_Calories = t.test(Daily_Calories_Intake ~ Gender, data = fitnessdf_gender),
+  Resting_HR = t.test(Resting_Heart_Rate_bpm ~ Gender, data = fitnessdf_gender)
+)
+
+# Create a summary table of t-test results
+t_test_summary <- data.frame(
+  Variable = names(t_test_results),
+  P_Value = sapply(t_test_results, function(x) x$p.value),
+  Mean_Difference = sapply(t_test_results, function(x) diff(x$estimate)),
+  T_Statistic = sapply(t_test_results, function(x) x$statistic)
+)
+
+# Add significance indicators
+t_test_summary$Significance <- ifelse(t_test_summary$P_Value < 0.001, "***",
+                                    ifelse(t_test_summary$P_Value < 0.01, "**",
+                                           ifelse(t_test_summary$P_Value < 0.05, "*", "ns")))
+
+print("T-Test Results Summary:")
+print(t_test_summary)
+    
+```
+
 ##Statistical Testing
 
 **SMART Q1, Q2, Q3**
