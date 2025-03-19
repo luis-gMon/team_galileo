@@ -12,12 +12,12 @@ output:
   pdf_document:
     toc: yes
     toc_depth: '3'
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
-
-
 ```{r init, include=FALSE}
-library(ezids)
 # knitr::opts_chunk$set(warning = F, results = "markup", message = F)
 knitr::opts_chunk$set(warning = F, results = "hide", message = F)
 options(scientific=T, digits = 5) 
@@ -31,25 +31,26 @@ library(tidyr)
 library(dplyr)
 library(gridExtra)
 library(corrplot)
+library(tidyverse)
+library(caret)
+library(readr)
+library(cluster)
+library(factoextra)
 ```
 
 Reading the Data
 
 ```{r}
-#fitnessdf <- data.frame(read.csv("C:\\Users\\dilun\\OneDrive\\Documents\\GWU\\Semester 1\\DATS 6101 - Introduction to Data Science\\Mid Term Project\\workout_fitness_tracker_data.csv"))
+fitnessdf <- data.frame(read.csv("../dataset/workout_fitness_tracker_data.csv"))
 ```
 
-```{r}
-fitnessdf <- data.frame(read.csv("workout_fitness_tracker_data.csv"))
-```
+**Data Pre-processing** \* Removing Redundant Columns \* Renaming
+Columns \* Updating Data Types \* Imputation \* Handling Outliers \*
+Feature Creation
 
-**Data Pre-processing** \* Removing Redundant Columns \* Renaming Columns \* Updating
-Data Types \* Imputation \* Handling Outliers \* Feature Creation
-
-
-**Removing Redundant Columns** The following columns will be removed from the
-dataset. User ID: Unique entries Water Intake (liters), VO2 Max and Body Fat (%):
-Redundant data (same value repeated)
+**Removing Redundant Columns** The following columns will be removed
+from the dataset. User ID: Unique entries Water Intake (liters), VO2 Max
+and Body Fat (%): Redundant data (same value repeated)
 
 ```{r}
 fitnessdf_cleaned <- fitnessdf[, !names(fitnessdf) %in% c("User.ID", "Water.Intake..liters.", "VO2.Max", "Body.Fat....")] 
@@ -92,7 +93,7 @@ print(missing_report)
 
 \*There are no missing values in the dataset.
 
-**Handling Outliers** 
+**Handling Outliers**
 
 ```{r}
 # Select numeric columns
@@ -144,12 +145,13 @@ print(outliers_z)
 
 ```
 
-* No outliers were observed in the data.
+No outliers were observed in the data.
 
-**Feature Creation** BMI: To categorize the dataset based on BMI categroies as
-Underweight, Normal, Overweight and Obese BMI Category: Four classes as Underweight,
-Normal, Overweight and Obese Age Groups: Based on the dataset(Ages 18-59), 18-30
-years (Youth), 31-45 (Middle age), 46-59 (Senior)
+**Feature Creation** BMI: To categorize the dataset based on BMI
+categroies as Underweight, Normal, Overweight and Obese BMI Category:
+Four classes as Underweight, Normal, Overweight and Obese Age Groups:
+Based on the dataset(Ages 18-59), 18-30 years (Youth), 31-45 (Middle
+age), 46-59 (Senior)
 
 **BMI**
 
@@ -171,25 +173,24 @@ fitnessdf_cleaned <- fitnessdf_cleaned %>%
      BMI >= 29.9 ~ "Obese"
 
   )) 
-```
 
+fitnessdf_cleaned$BMI_category <- factor(fitnessdf_cleaned$BMI_category, levels = c("Underweight", "Normal", "Overweight","Obese"))
+```
 
 **Age Groups**
 
-Age Groups: Based on the dataset(Ages 18-59), 18-30 years (Youth), 31-45 (Middle
-age), 46-59 (Senior)
+Age Groups: Based on the dataset(Ages 18-59), 18-30 years (Youth), 31-45
+(Middle age), 46-59 (Senior)
 
 ```{r, include=T}
 fitnessdf_cleaned <- fitnessdf_cleaned %>%
   mutate(Age_group= case_when(
-     Age <= 30 ~ "Youth",
-     Age >= 31 & Age <= 45 ~ "Middle age",
-     Age >= 46 ~ "Senior"
+     Age <= 30 ~ "Youth (<= 30 years)",
+     Age >= 31 & Age <= 45 ~ "Middle aged (31 to 45 years)",
+     Age >= 46 ~ "Seniors (>= 46 years)"
   )) 
-```
 
-```{r, include=T}
-head(fitnessdf_cleaned)
+fitnessdf_cleaned$Age_group <- factor(fitnessdf_cleaned$Age_group, levels = c("Youth (<= 30 years)", "Middle aged (31 to 45 years)", "Seniors (>= 46 years)"))
 ```
 
 ##EDA
@@ -205,21 +206,19 @@ print(demographics_summary)
 
 # Age Distribution Histogram
 ggplot(fitnessdf_cleaned, aes(x = Age)) + 
-  geom_histogram(bins = 30, fill = "steelblue", color = "black", alpha = 0.7) +
+  geom_histogram(bins = 10, fill = "steelblue", color = "black", alpha = 0.7) +
   labs(title = "Age Distribution", x = "Age", y = "Count") +
   theme_minimal()
 ```
-
 
 ```{r}
 # Age Category distribution 
 ggplot(fitnessdf_cleaned, aes(x = Age_group, fill = Age_group)) +
   geom_bar() +
-  labs(title = "Distribution of Age Groups", x = "Age_group", y = "Count") +
+  labs(title = "Distribution of Age groups", x = "Age groups", y = "Count") +
   theme_minimal() +
-  scale_fill_brewer(palette = "Set2")  # Adds nice colors
+  scale_fill_brewer(palette = "Set1") 
 ```
-
 
 ```{r}
 #BMI- Category Distibution
@@ -231,15 +230,13 @@ ggplot(fitnessdf_cleaned, aes(x = BMI_category, fill = BMI_category)) +
 
 ```
 
-
 ```{r}
 # Gender Distribution Bar Plot (if the 'gender' column exists)
-if("Gender" %in% colnames(fitnessdf_cleaned)){
-  ggplot(fitnessdf_cleaned, aes(x = Gender)) +
+ggplot(fitnessdf_cleaned, aes(x = Gender)) +
     geom_bar(fill = "coral", color = "black", alpha = 0.7) +
     labs(title = "Gender Distribution", x = "Gender", y = "Count") +
     theme_minimal()
-}
+
 ```
 
 ```{r}
@@ -251,7 +248,6 @@ ggplot(fitnessdf_cleaned,aes(x=Gender, fill= BMI_category))+
   scale_fill_brewer(palette = "Set2")
   
 ```
-
 
 ### EDA: Performance Metrics
 
@@ -274,13 +270,12 @@ if(all(c("Workout_Duration_mins", "Calories_Burned") %in% colnames(fitnessdf_cle
 
 ```{r}
 # Heart Rate Distribution Histogram
-if("Heart_Rate_bpm" %in% colnames(fitnessdf_cleaned)){
-  ggplot(fitnessdf_cleaned, aes(x = Heart_Rate_bpm)) +
-    geom_histogram(bins = 30, fill = "purple", color = "black", alpha = 0.7) +
+ggplot(fitnessdf_cleaned, aes(x = Heart_Rate_bpm)) +
+    geom_histogram(bins = 15, fill = "purple", color = "black", alpha = 0.7) +
     labs(title = "Heart Rate Distribution", 
          x = "Heart Rate (bpm)", y = "Frequency") +
     theme_minimal()
-}
+
 ```
 
 ```{r}
@@ -291,9 +286,8 @@ ggplot(fitnessdf_cleaned, aes(y = Sleep_Hours, x= Mood_Before_Workout)) +
   theme_minimal() 
 ```
 
-If you have had more hours of sleep could assume that your mood before workout would
-be better.
-
+If you have had more hours of sleep could assume that your mood before
+workout would be better.
 
 ### EDA: Workout Patterns
 
@@ -314,7 +308,6 @@ if("Workout_Type" %in% colnames(fitnessdf_cleaned)){
     theme_minimal()
 }
 ```
-
 
 ## EDA: Gender Mean differences
 
@@ -371,9 +364,9 @@ print(t_test_summary)
     
 ```
 
-##Statistical Testing
-**SMART Q1**
-What combination of workout types and durations maximizes calorie burn efficiency for different user profiles (clustered by age, BMI, and fitness level)?
+##Statistical Testing **SMART Q1** What combination of workout types and
+durations maximizes calorie burn efficiency for different user profiles
+(clustered by age, BMI, and fitness level)?
 
 ```{r}
 
@@ -409,80 +402,165 @@ ggplot(fitnessdf_cleaned, aes(x = Age_group, y = Calorie_Efficiency, fill = BMI_
 # Linear regression including BMI category
 model <- lm(Calorie_Efficiency ~ Workout_Duration_mins + Workout_Type + Age + BMI_Category, 
             data = fitnessdf_cleaned)
-Print(summary(model))
+print(summary(model))
 
 
 ```
+
 **SMART Q2**
-How does the relationship between heart rate patterns and calorie burn vary across different workout types, and can this predict optimal workout intensity?
+
+How does the relationship between heart rate patterns and calorie burn
+vary across different workout types, and can this predict optimal
+workout intensity?
+
+```{r}
+ggplot(fitnessdf_cleaned, aes(x = Heart_Rate_bpm, y = Calories_Burned, color = Workout_Type)) +
+  geom_point(alpha=0.6) +
+  geom_smooth(method = 'lm') +
+  labs(title = "Heart Rate vs. Calories Burned by Workout Type",
+       x = "Heart Rate (bpm)",
+       y = "Calories Burned")
+
+
+```
+
+```{r}
+# Find optimal intensity based on calories per heart rate
+optimal_intensity <- fitnessdf_cleaned %>%
+  mutate(Efficiency = Calories_Burned / Heart_Rate_bpm) %>%
+  group_by(Workout_Type, Workout_Intensity) %>%
+  summarise(Avg_Efficiency =  round(mean(Efficiency, na.rm = TRUE), 2)) %>%
+  arrange(Workout_Type, desc(Avg_Efficiency))
+
+# Display optimal intensity results
+print(optimal_intensity)
+
+```
+
+```{r}
+# Visualization of optimal intensities
+ggplot(optimal_intensity, aes(x=Workout_Type, y=Avg_Efficiency, fill=Workout_Intensity)) +
+  geom_bar(stat="identity", position="dodge") +
+  labs(title="Optimal Workout Intensity by Workout Type",
+       x="Workout Type", 
+       y="Calories Burned per bpm")
+```
 
 ```{r}
 
-# Create a new variable for heart rate efficiency
-fitnessdf_cleaned <- fitnessdf_cleaned %>%
-  mutate(Heart_Rate_Efficiency = Calories_Burned / Heart_Rate_bpm)
 
-# Basic summary of heart rate efficiency by workout type
-hr_efficiency_summary <- fitnessdf_cleaned %>%
+# Statistical modeling: Create regression models for each Workout_Type
+models <- fitnessdf_cleaned %>% 
   group_by(Workout_Type) %>%
-  summarise(
-    Mean_HR_Efficiency = mean(Heart_Rate_Efficiency, na.rm = TRUE),
-    Median_HR_Efficiency = median(Heart_Rate_Efficiency, na.rm = TRUE),
-    SD_HR_Efficiency = sd(Heart_Rate_Efficiency, na.rm = TRUE)
-  ) %>%
-  arrange(desc(Mean_HR_Efficiency))
+  nest() %>%
+  mutate(model = map(data, ~ lm(Calories_Burned ~ Heart_Rate_bpm + Workout_Intensity, data = .x)))
 
-print("Summary of Heart Rate Efficiency by Workout Type:")
-print(hr_efficiency_summary)
+# Model summaries
+models_summary <- models %>% 
+  mutate(tidied = map(model, broom::tidy)) %>% 
+  unnest(tidied)
 
-# Visualize heart rate efficiency by workout type
-ggplot(fitnessdf_cleaned, aes(x = Workout_Type, y = Heart_Rate_Efficiency, fill = Workout_Type)) +
-  geom_boxplot() +
-  labs(title = "Heart Rate Efficiency by Workout Type",
-       x = "Workout Type",
-       y = "Heart Rate Efficiency (Calories/BPM)") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(models_summary)
 
-# Examine the relationship between heart rate and calorie burn
-ggplot(fitnessdf_cleaned, aes(x = Heart_Rate_bpm, y = Calories_Burned, color = Workout_Type)) +
-  geom_point(alpha = 0.6) +
-  geom_smooth(method = "lm", se = FALSE) +
-  labs(title = "Heart Rate vs. Calories Burned by Workout Type",
-       x = "Heart Rate (BPM)",
-       y = "Calories Burned") +
-  theme_minimal()
+# Evaluate Model Performance: R-squared values for each workout type
+model_performance <- models %>%
+  mutate(R_squared = map_dbl(model, ~summary(.)$r.squared)) %>%
+  select(Workout_Type, R_squared)
 
-# Linear regression model
-model_hr <- lm(Calories_Burned ~ Heart_Rate_bpm + Workout_Type + Workout_Intensity, data = fitnessdf_cleaned)
-summary(model_hr)
-
-# Visualize the effect of workout intensity on heart rate efficiency
-ggplot(fitnessdf_cleaned, aes(x = Workout_Intensity, y = Heart_Rate_Efficiency, fill = Workout_Type)) +
-  geom_boxplot() +
-  labs(title = "Heart Rate Efficiency by Workout Intensity and Type",
-       x = "Workout Intensity",
-       y = "Heart Rate Efficiency (Calories/BPM)") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-# Examine the relationship between workout duration and heart rate
-ggplot(fitnessdf_cleaned, aes(x = Workout_Duration_mins, y = Heart_Rate_bpm, color = Workout_Intensity)) +
-  geom_point(alpha = 0.6) +
-  geom_smooth(method = "lm", se = FALSE) +
-  labs(title = "Workout Duration vs. Heart Rate by Intensity",
-       x = "Workout Duration (minutes)",
-       y = "Heart Rate (BPM)") +
-  theme_minimal()
+print(model_performance)
 
 ```
 
+Conclusion: No significant effect on workout intensity based on the
+heart rate and calories burned according to the dataset.
 
-**SMART Q1, Q2, Q3**
+**SMART Q3**
+
+Can we identify distinct user profiles based on their workout patterns
+using clustering analysis on workout duration, calorie burn, and heart
+rate?
+
+```{r}
+cluster_data <- fitnessdf_cleaned %>%
+  select(Workout_Duration_mins, Calories_Burned, Heart_Rate_bpm) %>%
+  drop_na()
+
+# Add index as unique identifier
+cluster_data <- cluster_data %>% 
+  mutate(Index = row_number())
+
+# Scale the data for clustering
+scaled_data <- cluster_data %>%
+  select(-Index) %>%
+  scale()
+
+# Determine optimal number of clusters using the elbow method
+fviz_nbclust(scaled_data, kmeans, method = "wss") + 
+  labs(title = "Optimal Number of Clusters (Elbow Method)")
+
+# Determine optimal number of clusters using Silhouette Method
+fviz_nbclust(scaled_data, kmeans, method = "silhouette") +
+  labs(title = "Optimal Clusters: Silhouette Method")
+
+```
+
+```{r}
+
+# Perform K-means clustering (Choose optimal k from silhouette results, e.g., k=3)
+set.seed(123)
+optimal_k <- 6  # Adjust based on silhouette/elbow plots
+kmeans_result <- kmeans(scaled_data, centers = optimal_k, nstart = 25)
+
+# Add cluster labels to original data
+cluster_results <- cluster_data %>%
+  mutate(Cluster = factor(kmeans_result$cluster))
+
+# Visualize clusters using PCA
+fviz_cluster(kmeans_result, data = scaled_data,
+             ellipse.type = "euclid",
+             repel = TRUE,
+             ggtheme = theme_minimal()) +
+  labs(title = "Workout Patterns Clustering")
+
+# Summarize each cluster's characteristics
+cluster_summary <- cluster_results %>%
+  group_by(Cluster) %>%
+  summarise(
+    Count = n(),
+    Avg_Workout_Duration = round(mean(Workout_Duration_mins), 2),
+    Avg_Calories_Burned = round(mean(Calories_Burned), 2),
+    Avg_Heart_Rate = round(mean(Heart_Rate_bpm), 2)
+  )
+
+# Display summary
+print(cluster_summary)
+
+```
+
+Cluster characteristics:
+
+Cluster 1 (Moderate Duration, Low Calorie, High Intensity): - High
+intensity, cardio-focused workouts
+
+Cluster 2 (Moderate Duration, High Calorie, Low Intensity): - Very high
+calorie burn - Low intensity, strength-focused or resistance workouts
+
+Cluster 3 (Short Duration, High Calorie, High Intensity): - Short but
+intense workouts, possibly HIIT
+
+Cluster 4 (Long Duration, High Calorie, High Intensity): - Extended
+cardio or endurance sessions
+
+Cluster 5 (Short Duration, Low Calorie, Moderate Intensity): - Short
+duration, moderate effort, possibly low-intensity cardio or stretching
+
+Cluster 6 (Long Duration, Moderate Calorie, Low Intensity): - Extended
+low-intensity workouts, e.g., walking or yoga
 
 **SMART Q4**
 
-1\. Effects of workout type on different BMI categories [Factorial ANOVA]
+1\. Effects of workout type on different BMI categories [Factorial
+ANOVA]
 
 Factor 1: BMI Category - Underweight, Normal, Overweight and Obese
 
@@ -541,7 +619,8 @@ $$
 H_1:  \text{There is an interaction between BMI level and workout type on Calorie burn}
 $$
 
-The workout type does not have an influence on Calorie burn based on BMI Levels.
+The workout type does not have an influence on Calorie burn based on BMI
+Levels.
 
 ```{r, include=T}
 # Run factorial ANOVA
@@ -557,19 +636,19 @@ Based on the Results;(Testing at 95% significance level)
 
 1\. Main effects
 
--   BMI Level: Cannot Reject HO as P value is \> 0.05,The average Calorie burn is
-    equal among different BMI levels.
--   Workout Type: Cannot Reject HO as P value is \> 0.05, The average Calorie  burn is
-    equal among different Workout types.
+-   BMI Level: Cannot Reject HO as P value is \> 0.05,The average
+    Calorie burn is equal among different BMI levels.
+-   Workout Type: Cannot Reject HO as P value is \> 0.05, The average
+    Calorie burn is equal among different Workout types.
 
 2.  Interaction Effect
 
--   Cannot Reject HO as P value is \> 0.05, Different BMI groups respond the same to
-    different workout types.
+-   Cannot Reject HO as P value is \> 0.05, Different BMI groups respond
+    the same to different workout types.
 
-**SMART Q5** Link between poor sleep and resting heart rate (fewer the hours of sleep and higher resting heart rate)
-Source: <https://pmc.ncbi.nlm.nih.gov/articles/PMC7680518/>
-
+**SMART Q5** Link between poor sleep and resting heart rate (fewer the
+hours of sleep and higher resting heart rate) Source:
+<https://pmc.ncbi.nlm.nih.gov/articles/PMC7680518/>
 
 ```{r, include=T}
 # Scatter Plot
@@ -584,12 +663,11 @@ ggplot(fitnessdf_cleaned, aes(x = Sleep_Hours, y = Resting_Heart_Rate_bpm)) +
 cor(fitnessdf_cleaned$Sleep_Hours,fitnessdf_cleaned$Resting_Heart_Rate_bpm)
 ```
 
-Coefficient - -0.0125. It is negatively correlated as expected, however the strength
-of the relationship is low.
+Coefficient - -0.0125. It is negatively correlated as expected, however
+the strength of the relationship is low.
 
-
-
-**SMART Q6** Is there a relationship between mood before and mood after workout?
+**SMART Q6** Is there a relationship between mood before and mood after
+workout?
 
 Mood Before Workout: Happy, Neutral, Stressed and Tired.
 
@@ -617,7 +695,5 @@ chi_sq_result <- chisq.test(table_data)
 print(chi_sq_result)
 ```
 
-P-value is \> 0.05, Therefore we cannot reject the Null. There's no relationship
-between mood before and after workout.
-
-
+P-value is \> 0.05, Therefore we cannot reject the Null. There's no
+relationship between mood before and after workout.
