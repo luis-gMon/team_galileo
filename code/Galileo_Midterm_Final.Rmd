@@ -372,6 +372,47 @@ print(t_test_summary)
 ```
 
 ##Statistical Testing
+**SMART Q1**
+What combination of workout types and durations maximizes calorie burn efficiency for different user profiles (clustered by age, BMI, and fitness level)?
+
+```{r}
+
+
+# Calculate BMI and create age groups (I'm hardcoding some things to fit it from my own file)
+fitnessdf_cleaned <- fitnessdf_cleaned %>%
+  mutate(
+    BMI = Weight_kg / ((Height_cm / 100)^2),
+    BMI_Category = case_when(
+      BMI < 18.5 ~ "Underweight",
+      BMI >= 18.5 & BMI < 25 ~ "Normal",
+      BMI >= 25 & BMI < 30 ~ "Overweight",
+      BMI >= 30 ~ "Obese"
+    ),
+    Calorie_Efficiency = Calories_Burned / Workout_Duration_mins,
+    Age_group = case_when(
+      Age <= 30 ~ "18-30",
+      Age > 30 & Age <= 45 ~ "31-45",
+      Age > 45 ~ "46+"
+    )
+  )
+
+# Visualize the data
+ggplot(fitnessdf_cleaned, aes(x = Age_group, y = Calorie_Efficiency, fill = BMI_Category)) +
+  geom_boxplot() +
+  labs(title = "Calorie Efficiency by Age Group and BMI Category",
+       x = "Age Group",
+       y = "Calorie Efficiency (Calories/Minute)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# Linear regression including BMI category
+model <- lm(Calorie_Efficiency ~ Workout_Duration_mins + Workout_Type + Age + BMI_Category, 
+            data = fitnessdf_cleaned)
+Print(summary(model))
+
+
+```
 
 **SMART Q1, Q2, Q3**
 
