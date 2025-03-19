@@ -409,7 +409,7 @@ ggplot(fitnessdf_cleaned, aes(x = Age_group, y = Calorie_Efficiency, fill = BMI_
 # Linear regression including BMI category
 model <- lm(Calorie_Efficiency ~ Workout_Duration_mins + Workout_Type + Age + BMI_Category, 
             data = fitnessdf_cleaned)
-Print(summary(model))
+print(summary(model))
 
 
 ```
