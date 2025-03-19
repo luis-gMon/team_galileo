@@ -1,0 +1,343 @@
+---
+title: "project_eda"
+author: "Luis Garcia Montero"
+date: "2025-03-19"
+output: html_document
+---
+
+```{r init, include=FALSE}
+# some of common options (and the defaults) are: 
+# include=T, eval=T, echo=T, results='hide'/'asis'/'markup',..., collapse=F, warning=T, message=T, error=T, cache=T, fig.width=6, fig.height=4, fig.dim=c(6,4) #inches, fig.align='left'/'center','right', 
+library(ezids)
+# knitr::opts_chunk$set(warning = F, results = "markup", message = F)
+knitr::opts_chunk$set(warning = F, results = "hide", message = F)
+options(scientific=T, digits = 3) 
+# options(scipen=9, digits = 3) 
+# ‘scipen’: integer. A penalty to be applied when deciding to print numeric values in fixed or exponential notation.  Positive values bias towards fixed and negative towards scientific notation: fixed notation will be preferred unless it is more than ‘scipen’ digits wider.
+# use scipen=999 to prevent scientific notation at all times
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(ggplot2)
+```
+
+## libraries
+
+```{r}
+# Load data and check structure
+# Read the CSV file
+data <- read.csv("C:/Users/luisgamo/Downloads/workout_fitness_tracker_data.csv")
+
+# Look at the first few rows
+head(data)
+
+str(data)
+
+
+summary(data)
+
+    
+```
+```{r}
+# Count number of each gender
+table(data$Gender)
+
+# Count number of each workout type
+table(data$Workout.Type)
+
+# Calculate mean calories burned
+mean(data$Calories.Burned)
+
+# Calculate median workout duration
+median(data$Workout.Duration..mins.)
+```
+Basic Visualizations
+
+```{r}
+# Load ggplot2 for better visualizations
+library(ggplot2)
+
+# Create a bar plot of workout types
+ggplot(data, aes(x = Workout.Type)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Distribution of Workout Types",
+       x = "Workout Type",
+       y = "Count")
+
+# Create a histogram of calories burned
+ggplot(data, aes(x = Calories.Burned)) +
+  geom_histogram(binwidth = 50, fill = "blue", alpha = 0.5) +
+  labs(title = "Distribution of Calories Burned",
+       x = "Calories Burned",
+       y = "Frequency")
+
+# Create a boxplot of ca calories burned by workout type
+ggplot(data, aes(x = Workout.Type, y = Calories.Burned)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Calories Burned by Workout Type",
+       x = "Workout Type",
+       y = "Calories Burned")
+
+# Create a scatter plot
+ggplot(data, aes(x = Workout.Duration..mins., y = Calories.Burned)) +
+  geom_point() +
+  labs(title = "Workout Duration vs Calories Burned",
+       x = "Duration (minutes)",
+       y = "Calories Burned")
+
+
+```
+
+
+# Correlations Analysis
+
+```{r correlations}
+# Create a subset of numeric variables
+numeric_data <- data[, c("Age", "Height..cm.", "Weight..kg.", 
+                        "Workout.Duration..mins.", "Calories.Burned",
+                        "Heart.Rate..bpm.", "Steps.Taken", "Distance..km.",
+                        "Sleep.Hours", "Daily.Calories.Intake",
+                        "Resting.Heart.Rate..bpm.")]
+
+# Calculate correlations
+correlations <- cor(numeric_data)
+
+# View correlations (rounded to 2 decimal places)
+round(correlations, 2)
+
+# Create a basic correlation plot
+library(corrplot)
+corrplot(correlations, method = "color", 
+         type = "upper", 
+         addCoef.col = "black", # Add correlation coefficients
+         number.cex = 0.7,      # Size of correlation coefficients
+         tl.col = "black",      # Text label color
+         tl.srt = 45)           # Rotate text labels
+
+# Find strong correlations (absolute value > 0.5)
+strong_correlations <- which(abs(correlations) > 0.5 & abs(correlations) < 1, arr.ind = TRUE)
+print("Strong correlations (|r| > 0.5):")
+for(i in 1:nrow(strong_correlations)) {
+    row <- strong_correlations[i, 1]
+    col <- strong_correlations[i, 2]
+    if(row < col) {  # To avoid printing duplicates
+        cat(sprintf("%s and %s: %.2f\n", 
+                   colnames(numeric_data)[row],
+                   colnames(numeric_data)[col],
+                   correlations[row, col]))
+    }
+}
+
+# Scatter plot for the strongest correlation
+# Example for two variables (modify based on what you find):
+ggplot(data, aes(x = Steps.Taken, y = Distance..km.)) +
+    geom_point() +
+    geom_smooth(method = "lm") +
+    labs(title = "Steps Taken vs Distance",
+         x = "Steps Taken",
+         y = "Distance (km)")
+```
+
+
+
+## 
+```{r}
+library(tidyverse)
+library(ggplot2)
+
+numeric_cols <- data %>% 
+  select(Age, Height..cm., Weight..kg., 
+         Workout.Duration..mins., Calories.Burned,
+         Heart.Rate..bpm., Steps.Taken, Distance..km.,
+         Sleep.Hours, Daily.Calories.Intake,
+         Resting.Heart.Rate..bpm.) %>%
+  as.data.frame()
+summary_stats <- summary(numeric_cols)
+print(summary_stats)
+
+
+
+```
+## Distribution Analysis
+
+```{r}
+
+plot_distributions <- function(data) {
+  for(col in names(data)) {
+    p <- ggplot(data, aes_string(x = col)) +
+      geom_histogram(aes(y = ..density..), bins = 30, fill = "skyblue", color = "black") +
+      geom_density(color = "red") +
+      ggtitle(paste("Distribution of", col)) +
+      theme_minimal()
+    
+    print(p)
+  }
+}
+
+plot_distributions(numeric_cols)
+```
+
+
+###  Correlation Analysis
+```{r}
+cor_matrix <- cor(numeric_cols)
+corrplot(correlations, method = "color", 
+         type = "upper", 
+         addCoef.col = "black", # Add correlation coefficients
+         number.cex = 0.7,      # Size of correlation coefficients
+         tl.col = "black",      # Text label color
+         tl.srt = 45)           # Rotate text labels
+```
+
+## Unique Values Patterns
+
+
+```{r}
+unique_counts <- sapply(numeric_cols, function(x) length(unique(x)))
+print(unique_counts)
+```
+###boxplots by gender
+
+
+```{r}
+
+create_gender_boxplots <- function(data) {
+  # Select numeric columns (excluding User ID)
+  numeric_cols <- names(data)[sapply(data, is.numeric)]
+  numeric_cols <- numeric_cols[numeric_cols != "User.ID"]
+  
+  # Create boxplots for each numeric variable
+  for(col in numeric_cols) {
+    p <- ggplot(data, aes(x = Gender, y = .data[[col]], fill = Gender)) +
+      geom_boxplot() +
+      theme_minimal() +
+      labs(title = paste("Distribution of", gsub("\\.", " ", col), "by Gender"),
+           y = col) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1),
+            plot.title = element_text(size = 12)) +
+      scale_fill_brewer(palette = "Set2")
+    
+    print(p)
+  }
+}
+
+# Create all boxplots
+create_gender_boxplots(data)
+```
+
+
+
+### testing for mean differences
+
+
+```{r}
+
+data <- data %>%
+  filter(Gender %in% c("Male", "Female"))
+
+# Calculate BMI
+data$BMI <- data$Weight..kg. / ((data$Height..cm. / 100)^2)
+
+# Get summary statistics for height
+height_summary <- data %>%
+  group_by(Gender) %>%
+  summarise(
+    count = n(),
+    mean_height = mean(Height..cm.),
+    sd_height = sd(Height..cm.)
+  )
+print("Summary Statistics for Height:")
+print(height_summary)
+
+# Perform t-test for height
+height_test <- t.test(Height..cm. ~ Gender, data = data)
+print("\nT-test Results for Height:")
+print(height_test)
+
+# Perform t-test for weight
+weight_test <- t.test(Weight..kg. ~ Gender, data = data)
+print("\nT-test Results for Height:")
+print(weight_test)
+
+# Perform t-test for Workout.Duration..mins.
+Duration_test <- t.test(Workout.Duration..mins. ~ Gender, data = data)
+print("\nT-test Results for Height:")
+print(Duration_test)
+
+# Perform t-test for Calories.Burned
+Calories.Burned_test <- t.test(Calories.Burned ~ Gender, data = data)
+print("\nT-test Results for Height:")
+print(Calories.Burned_test)
+
+# Perform t-test for Heart.Rate..bpm.
+Heart_test <- t.test(Heart.Rate..bpm. ~ Gender, data = data)
+print("\nT-test Results for Height:")
+print(Heart_test)
+
+# Perform t-test for Steps.Taken
+Steps.Taken_test <- t.test(Steps.Taken ~ Gender, data = data)
+print("\nT-test Results for Height:")
+print(Steps.Taken_test)
+
+
+# Perform t-test for Distance..km.
+Distance..km._test <- t.test(Distance..km. ~ Gender, data = data)
+print("\nT-test Results for Height:")
+print(Distance..km._test)
+
+# Perform t-test for Sleep.Hours
+Sleep.Hours_test <- t.test(Sleep.Hours ~ Gender, data = data)
+print("\nT-test Results for Height:")
+print(Sleep.Hours_test)
+
+# Perform t-test for Daily.Calories.Intake
+Daily.Calories.Intake_test <- t.test(Daily.Calories.Intake ~ Gender, data = data)
+print("\nT-test Results for Height:")
+print(Daily.Calories.Intake_test)
+
+# Perform t-test for Resting.Heart.Rate..bpm.
+Resting.Heart.Rate..bpm._test <- t.test(Resting.Heart.Rate..bpm. ~ Gender, data = data)
+print("\nT-test Results for Height:")
+print(Resting.Heart.Rate..bpm._test)
+
+
+
+# Create boxplot for height
+ggplot(data, aes(x = Gender, y = Height..cm., fill = Gender)) +
+  geom_boxplot() +
+  labs(title = "Height Distribution by Gender",
+       y = "Height (cm)") +
+  theme_minimal()
+
+    
+
+```
+
+
+###
+
+Variable		 |	P values
+________________________
+height			 |	0.7979
+weight			 |	0.0151*
+duration		 |	0.8993
+calories_burnt	 |	0.08177
+heart_rate		 |	0.3567
+steps			 |	0.717
+distance		 |	0.9758
+sleep_hours		 |	0.5938
+daily_calories	 |	0.3998
+resting_heart	 |	0.3748
+
+
+```{r}
+```
+
