@@ -476,6 +476,77 @@ ggplot(fitnessdf_cleaned, aes(x = Workout_Duration_mins, y = Heart_Rate_bpm, col
   theme_minimal()
 
 ```
+**SMART Q3**
+```{r}
+ggplot(fitnessdf_cleaned, aes(x = Workout_Duration_mins, y = Calories_Burned)) +
+  geom_point(aes(color = Workout_Type), alpha = 0.6) +
+  labs(title = "Workout Duration vs Calories Burned by Workout Type",
+       x = "Workout Duration (minutes)",
+       y = "Calories Burned") +
+  theme_minimal()
+
+# Histogram of heart rates by workout type
+ggplot(fitnessdf_cleaned, aes(x = Heart_Rate_bpm)) +
+  geom_histogram(bins = 30, fill = "skyblue", color = "black") +
+  facet_wrap(~Workout_Type) +
+  labs(title = "Distribution of Heart Rates by Workout Type",
+       x = "Heart Rate (BPM)",
+       y = "Count") +
+  theme_minimal()
+
+# Box plot of calories burned by workout type
+ggplot(fitnessdf_cleaned, aes(x = Workout_Type, y = Calories_Burned)) +
+  geom_boxplot(fill = "lightgreen") +
+  labs(title = "Calories Burned by Workout Type",
+       x = "Workout Type",
+       y = "Calories Burned") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Scatter plot of age vs BMI, colored by workout type
+ggplot(fitnessdf_cleaned, aes(x = Age, y = BMI, color = Workout_Type)) +
+  geom_point(alpha = 0.6) +
+  labs(title = "Age vs BMI by Workout Type",
+       x = "Age",
+       y = "BMI") +
+  theme_minimal()
+
+# Summary statistics by workout type
+workout_summary <- fitnessdf_cleaned %>%
+  group_by(Workout_Type) %>%
+  summarise(
+    Avg_Duration = mean(Workout_Duration_mins),
+    Avg_Calories = mean(Calories_Burned),
+    Avg_Heart_Rate = mean(Heart_Rate_bpm),
+    Avg_Age = mean(Age),
+    Avg_BMI = mean(BMI),
+    Count = n()
+  ) %>%
+  arrange(desc(Count))
+
+print("Summary by Workout Type:")
+print(workout_summary)
+
+# Additional analysis: Workout patterns by age group
+ggplot(fitnessdf_cleaned, aes(x = Age_group, fill = Workout_Type)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Workout Type Preferences by Age Group",
+       x = "Age Group",
+       y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Analyze workout intensity patterns
+ggplot(fitnessdf_cleaned, aes(x = Workout_Type, fill = Workout_Intensity)) +
+  geom_bar(position = "fill") +
+  labs(title = "Workout Intensity Distribution by Workout Type",
+       x = "Workout Type",
+       y = "Proportion") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
 
 
 **SMART Q1, Q2, Q3**
