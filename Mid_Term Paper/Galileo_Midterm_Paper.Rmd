@@ -162,6 +162,25 @@ However, this defeats the purpose of the choice of this dataset in particular, a
 
 ## 7. Changes to your question after EDA - Luis
 
+The initial research questions need to be completely reformulated due to the following discoveries:
+
+  The dataset appears to be simulated rather than real-world data
+  Key variables show unrealistic uniform distributions
+  There are no meaningful correlations between variables that should naturally correlate
+  Demographic distributions (especially gender) contradict known population statistics
+  BMI and other derived variables show unnaturally even distributions
+
+Proposed changes:
+
+  First acquire a verified, real-world fitness dataset
+  Revise research questions to focus on actual patterns in authentic fitness data
+  Include more complex variable relationships that reflect true physiological and behavioral patterns
+  Develop questions that can lead to actionable insights for real fitness applications
+  Consider narrowing the scope to specific demographic groups or workout types to ensure data quality and relevance
+
+This response reflects the need to pivot from the current approach due to the fundamental data quality issues discovered during EDA.
+
+
 ## 8. Preliminary insights based on EDA - V
 
 ## 9. References (APA style preferred) - Manoj
