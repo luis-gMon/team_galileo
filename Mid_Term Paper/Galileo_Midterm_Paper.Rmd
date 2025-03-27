@@ -183,6 +183,48 @@ This response reflects the need to pivot from the current approach due to the fu
 
 ## 8. Preliminary insights based on EDA - V
 
+Data Structure Issues:
+
+  Dataset revealed to be artificially structured/simulated
+  Variables showed unrealistic uniform distributions
+  No meaningful correlations between variables that should naturally correlate
+
+Key Distribution Findings:
+  Gender was evenly distributed between 'male', 'female', and 'other' (contradicting real-world demographics)
+  Uniform distributions observed in:
+      Age
+      Weight
+      Height
+      Workout duration
+      Daily calorie intake
+      Heart rate
+      Distance
+
+Partition Analysis Results:
+  No significant mean differences when analyzing:
+      Burned calories across workout types
+      BMI distribution across genders
+  Minimal gender differences in most variables
+      Only notable difference was in calories burned:
+        Females: 546.79
+        Males: 557.94
+      Difference too small to be practically significant
+
+Derived Variables:
+  Created BMI and body type classifications
+  These new variables also showed uniform distributions
+  No meaningful patterns emerged even with derived metrics
+
+Statistical Analysis Attempts:
+  No significant correlations found between any variables
+  Regression models yielded:
+     Non-significant coefficients
+     Coefficients close to zero
+     No predictive power
+
+Overall conclusion: The data appears to be synthetic/simulated rather than real-world data, making it unsuitable for meaningful statistical analysis.
+
+
 ## 9. References (APA style preferred) - Manoj
 
 Loading Libraries
