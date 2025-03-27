@@ -139,6 +139,26 @@ rate? The research highlighted that it has a negative relationship,
 therefore we tried to prove this relationship using our data.
 
 ## 6. Additional information that could enhance the analysis - Luis
+Despite our attempts to create derived variables like BMI and body type classifications, the analysis remained limited. Additional information needed would include:
+
+Having already exhausted basic derived metrics (BMI, body type) that showed uniform distributions, we need:
+  True physiological relationships and correlations
+  Non-uniform, realistic distributions of derived variables
+
+Additional real-world variables such as:
+  Real-world demographic distributions for gym-goers or fitness enthusiasts
+  Actual physiological relationships between variables (e.g., how heart rate correlates with workout intensity and calories burned)
+  Time-series data for individual users to track progress
+  Seasonal patterns in workout behaviors
+  Detailed workout intensity levels
+  Diet information beyond daily calorie intake
+  Rest periods between workouts
+  Previous fitness experience indicators
+  Environmental factors (indoor vs outdoor workouts, temperature, humidity)
+  Sleep patterns and their impact on workout effectiveness
+  Injury history or physical limitations
+
+However, this defeats the purpose of the choice of this dataset in particular, as one of the key reasons was it's ease of use. 
 
 ## 7. Changes to your question after EDA - Luis
 
