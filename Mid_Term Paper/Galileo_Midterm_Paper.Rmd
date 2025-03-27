@@ -27,6 +27,8 @@ options(scientific=T, digits = 5)
 
 ## 1. What does the dataset reveal? - Ella
 
+The dataset did not reveal much because it was artificially generated data from Kaggle. When first looked at, the data appeared to have a good spread of variables, both categorical and numerical. However, after conducting extensive exploratory data analysis, it was revealed that the data was essentially flat. All of the different variables appeared to be very uniformly spread, except for a few. For the most part, the different categories of variables were almost entirely equal, making all of the statistical analysis conducted insignificant. As a result of this, the dataset unfortunately did not reveal much in terms of its values. However, performing the analysis and going through the motion of the code could help for future analysis with other data. 
+
 This dataset contains **10,000+ records** of workout and fitness-related
 data collected from various fitness apps and devices. Contains below
 features.
@@ -64,18 +66,11 @@ features.
 
 ## 2. Dataset limitations - Ella
 
--   **Simulated Data:** After extensive Exploratory Data Analysis (EDA),
-    strong indications suggest that the dataset is artificially
-    generated rather than collected from the real world.
-
--   **Lack of Correlation:** Key workout metrics show minimal or no
-    meaningful relationships, reducing the dataset’s predictive value.
-
--   **Implications:** Insights derived from this dataset may not
-    generalize to real-world workout patterns, limiting its
-    applicability for data-driven decision-making.
+The dataset appeared to be artificially generated, as revealed through extensive Exploratory Data Analysis (EDA), which showed it to be flat and evenly distributed. This lack of variability led to minimal or no meaningful correlations among key workout metrics, resulting in statistically insignificant findings. Consequently, any insights drawn from this data are unlikely to generalize to real-world workout patterns, limiting its value for data-driven decision-making. 
 
 ## 3. Data collection methods - Ella
+
+The data was taken from the website Kaggle. It is titled “Workout & Fitness Tracker Dataset” and has over 10,000 records of workout and fitness-related data collected from various fitness apps and devices. As previously mentioned, this data was found to be artificially generated, not collected from actual people’s data.
 
 ## 4. Previous analyses on related topics - Diluni
 
