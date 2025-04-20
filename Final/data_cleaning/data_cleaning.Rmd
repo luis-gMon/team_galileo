@@ -1,0 +1,74 @@
+---
+title: "final_project"
+output: html_document
+date: "2025-04-20"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+# Load required libraries
+library(tidyverse)
+library(janitor)
+library(skimr)
+```
+
+## 🧠 Introduction
+
+This project investigates how student background, academic programs, and institutional characteristics influence post-graduation earnings. We use two comprehensive datasets from the U.S. Department of Education’s College Scorecard:
+
+- **Institution-Level Dataset**: Summarizes outcomes and demographics at the college level
+- **Field-of-Study Dataset**: Provides earnings, debt, and aid data at the program level (major × institution × credential)
+
+To build statistically sound and interpretable models, we must first address the **dimensionality** of these datasets. The institution dataset contains over 3,000 variables, and the field-of-study dataset has nearly 200. Many of these variables are irrelevant, redundant, poorly populated, or domain-specific.
+
+---
+
+
+## 🧰 Dataset Loading and Preparation
+
+We load and clean the two datasets using `tidyverse` and `janitor`. We then apply each of the above criteria sequentially to create a reduced working dataset suitable for analysis and modeling.
+
+
+```{r}
+# Load institution-level dataset. Modify this to your local filepath. 
+# Remembrer that the file can´t be in the repo due to the 100mb limitations. 
+
+path_to_institutions <- "/Users/luisgarciamontero/Downloads/Most-Recent-Cohorts-Institution.csv"
+path_to_field <- "/Users/luisgarciamontero/Downloads/Most-Recent-Cohorts-Field-of-Study.csv"
+
+
+institution_data <- read_csv(path_to_institutions) %>%
+  clean_names()
+
+# Load field-of-study-level dataset
+fieldofstudy_data <- read_csv(path_to_field) %>%
+  clean_names()
+```
+```{r}
+# Check dimensions and structure
+dim(institution_data)
+glimpse(institution_data)
+
+# Skim summary (high-level EDA)
+skim(institution_data)
+
+```
+
+```{r}
+# Check dimensions and structure
+dim(fieldofstudy_data)
+glimpse(fieldofstudy_data)
+# Skim summary (high-level EDA)
+skim(fieldofstudy_data)
+```
+```{r}
+```
