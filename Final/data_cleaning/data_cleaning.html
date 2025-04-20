@@ -41289,6 +41289,255 @@ skim(fieldofstudy_data)</code></pre>
 </tbody>
 </table>
 </div>
+<div id="motivation-for-variable-trimming" class="section level2">
+<h2>🎯 Motivation for Variable Trimming</h2>
+<p>Both Datasets are too complex. We need to reduce varibales.</p>
+<p>The rationale for reducing the number of variables is to: - Prevent
+<strong>overfitting</strong> in our models - Improve
+<strong>interpretability</strong> of findings - Eliminate
+<strong>sparsely populated</strong> or highly
+<strong>correlated</strong> fields - Focus on variables that are
+<strong>theoretically and practically relevant</strong></p>
+<hr />
+</div>
+<div id="formal-variable-vetting-criteria" class="section level2">
+<h2>✅ Formal Variable Vetting Criteria</h2>
+<p>To systematically reduce dimensionality, we apply the following
+filtering steps:</p>
+<div id="coverage" class="section level3">
+<h3>1. Coverage</h3>
+<p>Remove variables missing in more than 50% of rows. These are
+unreliable for most analyses and can severely reduce usable observations
+in modeling.</p>
+</div>
+<div id="variance" class="section level3">
+<h3>2. Variance</h3>
+<p>Remove variables with near-zero variance. These provide little
+predictive power and often act as noise in models.</p>
+</div>
+<div id="redundancy" class="section level3">
+<h3>3. Redundancy</h3>
+<p>For numeric variables, remove one of any pair with Pearson
+correlation &gt; 0.95. This mitigates multicollinearity and improves
+model stability.</p>
+</div>
+<div id="interpretability" class="section level3">
+<h3>4. Interpretability</h3>
+<p>Retain only variables that are meaningful to a general audience or
+policymaker. Variables with coded or obscure definitions will be
+excluded unless essential.</p>
+</div>
+<div id="relevance-to-research-questions" class="section level3">
+<h3>5. Relevance to Research Questions</h3>
+<p>Use keyword-based filtering and human inspection to prioritize
+variables related to: - Student aid (<code>pell</code>,
+<code>loan</code>) - Costs (<code>price</code>, <code>net</code>,
+<code>tuition</code>) - Outcomes (<code>earn</code>, <code>grad</code>,
+<code>debt</code>, <code>completion</code>) - Institution or program
+type (<code>control</code>, <code>credlev</code>,
+<code>cipcode</code>)</p>
+<p>##📉 Step 1: Coverage Filtering (≥ 90%)</p>
+<p>The first step in our variable vetting process is to remove variables
+that have <strong>too many missing values</strong>. Variables missing in
+more than 50% of rows are considered unreliable for modeling, especially
+when combining data across datasets. Keeping only well-populated fields
+ensures model stability and maximizes usable observations.</p>
+<p>We apply this filtering to both datasets:</p>
+<pre class="r"><code># Store original variable counts
+ncol_inst_before_coverage &lt;- ncol(institution_data)
+ncol_field_before_coverage &lt;- ncol(fieldofstudy_data)
+
+
+# Function to calculate coverage and return columns with at least 90% non-NA
+coverage_filter &lt;- function(df, threshold = 0.9) {
+  coverage &lt;- sapply(df, function(x) mean(!is.na(x)))
+  vars_to_keep &lt;- names(coverage[coverage &gt;= threshold])
+  df_filtered &lt;- df[, vars_to_keep]
+  return(list(filtered_data = df_filtered, retained_vars = vars_to_keep, coverage_table = coverage))
+}
+
+# Apply to institution-level dataset
+inst_coverage &lt;- coverage_filter(institution_data)
+institution_data_filtered &lt;- inst_coverage$filtered_data
+
+# Apply to field-of-study-level dataset
+field_coverage &lt;- coverage_filter(fieldofstudy_data)
+fieldofstudy_data_filtered &lt;- field_coverage$filtered_data
+
+# Print summary
+cat(&quot;Institution-level dataset:\n&quot;)</code></pre>
+<pre><code>## Institution-level dataset:</code></pre>
+<pre class="r"><code>cat(&quot;- Original variables:&quot;, ncol_inst_before_coverage, &quot;\n&quot;)</code></pre>
+<pre><code>## - Original variables: 3305</code></pre>
+<pre class="r"><code>cat(&quot;- Retained after coverage filtering:&quot;, ncol(institution_data_filtered), &quot;\n\n&quot;)</code></pre>
+<pre><code>## - Retained after coverage filtering: 2330</code></pre>
+<pre class="r"><code>cat(&quot;Field-of-study-level dataset:\n&quot;)</code></pre>
+<pre><code>## Field-of-study-level dataset:</code></pre>
+<pre class="r"><code>cat(&quot;- Original variables:&quot;, ncol_field_before_coverage, &quot;\n&quot;)</code></pre>
+<pre><code>## - Original variables: 174</code></pre>
+<pre class="r"><code>cat(&quot;- Retained after coverage filtering:&quot;, ncol(fieldofstudy_data_filtered), &quot;\n&quot;)</code></pre>
+<pre><code>## - Retained after coverage filtering: 134</code></pre>
+<p>##📏 Step 2: Near-Zero Variance Filtering We now remove variables
+that have very little variability (e.g., same value in over 95% of the
+rows). These variables do not contribute useful signal to the model and
+may introduce noise.</p>
+<pre class="r"><code>## Step 2: Variance Filtering
+
+# Store variable counts before variance filtering
+ncol_inst_before_variance &lt;- ncol(institution_data_filtered)
+ncol_field_before_variance &lt;- ncol(fieldofstudy_data_filtered)
+
+library(caret)</code></pre>
+<pre><code>## Loading required package: lattice</code></pre>
+<pre><code>## 
+## Attaching package: &#39;caret&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:purrr&#39;:
+## 
+##     lift</code></pre>
+<pre class="r"><code># Function to remove near-zero variance predictors
+variance_filter &lt;- function(df) {
+  numeric_cols &lt;- df %&gt;% select(where(is.numeric))
+  nzv &lt;- nearZeroVar(numeric_cols)
+  retained &lt;- numeric_cols[, -nzv, drop = FALSE]
+  retained_names &lt;- names(retained)
+  df_filtered &lt;- df[, c(retained_names, setdiff(names(df), names(numeric_cols)))]
+  return(list(filtered_data = df_filtered, retained_vars = retained_names))
+}
+
+# Apply to institution-level filtered data
+inst_variance &lt;- variance_filter(institution_data_filtered)
+institution_data_filtered2 &lt;- inst_variance$filtered_data
+
+# Apply to field-of-study filtered data
+field_variance &lt;- variance_filter(fieldofstudy_data_filtered)
+fieldofstudy_data_filtered2 &lt;- field_variance$filtered_data
+
+# Print Summary
+cat(&quot;Institution-level dataset:\n&quot;)</code></pre>
+<pre><code>## Institution-level dataset:</code></pre>
+<pre class="r"><code>cat(&quot;- Before variance filtering:&quot;, ncol_inst_before_variance, &quot;\n&quot;)</code></pre>
+<pre><code>## - Before variance filtering: 2330</code></pre>
+<pre class="r"><code>cat(&quot;- Retained after variance filtering:&quot;, ncol(institution_data_filtered2), &quot;\n\n&quot;)</code></pre>
+<pre><code>## - Retained after variance filtering: 2200</code></pre>
+<pre class="r"><code>cat(&quot;Field-of-study-level dataset:\n&quot;)</code></pre>
+<pre><code>## Field-of-study-level dataset:</code></pre>
+<pre class="r"><code>cat(&quot;- Before variance filtering:&quot;, ncol_field_before_variance, &quot;\n&quot;)</code></pre>
+<pre><code>## - Before variance filtering: 134</code></pre>
+<pre class="r"><code>cat(&quot;- Retained after variance filtering:&quot;, ncol(fieldofstudy_data_filtered2), &quot;\n&quot;)</code></pre>
+<pre><code>## - Retained after variance filtering: 133</code></pre>
+<p>##🔁 Step 3: Redundancy Filtering (Correlation &gt; 0.90) The next
+step is to remove redundant numeric variables that are highly correlated
+(e.g., correlation &gt; 0.90). These can lead to multicollinearity in
+regression models and should be pruned to improve model stability and
+interpretability.</p>
+<pre class="r"><code>## Step 3: Redundancy Filtering via Correlation (r &gt; 0.90)
+
+# Store counts before correlation filtering
+ncol_inst_before_correlation &lt;- ncol(institution_data_filtered2)
+ncol_field_before_correlation &lt;- ncol(fieldofstudy_data_filtered2)
+
+# Function to remove one variable from each highly correlated pair
+correlation_filter &lt;- function(df, cutoff = 0.90) {
+  numeric_df &lt;- df %&gt;% select(where(is.numeric))
+  cor_matrix &lt;- cor(numeric_df, use = &quot;pairwise.complete.obs&quot;)
+  
+  # Find highly correlated pairs (upper triangle only)
+  cor_pairs &lt;- which(abs(cor_matrix) &gt; cutoff &amp; abs(cor_matrix) &lt; 1, arr.ind = TRUE)
+  upper_triangle &lt;- cor_pairs[cor_pairs[,1] &lt; cor_pairs[,2], , drop = FALSE]
+  
+  vars_to_remove &lt;- unique(rownames(upper_triangle))
+  df_filtered &lt;- df %&gt;% select(-all_of(vars_to_remove))
+  
+  return(list(filtered_data = df_filtered, removed_vars = vars_to_remove))
+}
+
+# Apply to institution-level filtered data
+inst_cor &lt;- correlation_filter(institution_data_filtered2, cutoff = 0.90)
+institution_data_final &lt;- inst_cor$filtered_data
+
+# Apply to field-of-study filtered data
+field_cor &lt;- correlation_filter(fieldofstudy_data_filtered2, cutoff = 0.90)
+fieldofstudy_data_final &lt;- field_cor$filtered_data
+
+# Print summary
+cat(&quot;Institution-level dataset:\n&quot;)</code></pre>
+<pre><code>## Institution-level dataset:</code></pre>
+<pre class="r"><code>cat(&quot;- Before correlation filtering:&quot;, ncol_inst_before_correlation, &quot;\n&quot;)</code></pre>
+<pre><code>## - Before correlation filtering: 2200</code></pre>
+<pre class="r"><code>cat(&quot;- Retained after correlation filtering:&quot;, ncol(institution_data_final), &quot;\n\n&quot;)</code></pre>
+<pre><code>## - Retained after correlation filtering: 2192</code></pre>
+<pre class="r"><code>cat(&quot;Field-of-study-level dataset:\n&quot;)</code></pre>
+<pre><code>## Field-of-study-level dataset:</code></pre>
+<pre class="r"><code>cat(&quot;- Before correlation filtering:&quot;, ncol_field_before_correlation, &quot;\n&quot;)</code></pre>
+<pre><code>## - Before correlation filtering: 133</code></pre>
+<pre class="r"><code>cat(&quot;- Retained after correlation filtering:&quot;, ncol(fieldofstudy_data_final), &quot;\n&quot;)</code></pre>
+<pre><code>## - Retained after correlation filtering: 133</code></pre>
+<p>##✅ Step 4: Relevance Filtering (Keyword-Based) We will:</p>
+<p>Define a list of keyword stems (e.g., earn, pell, loan)</p>
+<p>Apply these to variable names</p>
+<p>Keep only variables that match these themes.</p>
+<p>✅ Keyword Explanation for Relevance Filtering</p>
+<p>Keyword Justification Example Variable Names earn Captures
+post-graduation earnings (e.g., 1-year, 3-year, 10-year) earn_mdn,
+md_earn_wne_p10 debt Represents student debt levels and financial burden
+debt_mdn, debt_female_any_mdn grad Includes variables related to
+graduation rates and completion grad_rate, grad_100_yrs completion
+Broader term that may capture alternate completion metrics (e.g., 150%
+time) c150_4, completion_rate_fed_yr3_rt pell Indicates low-income
+background proxy (students receiving Pell Grants) pctpell,
+pell_ewd_yr6_rt loan Flags federal loan participation, relevant to
+affordability and default outcomes pctfloan, loan_comp_orig_yr3_rt price
+Institutional sticker price or net price values net_price,
+price_calculator_url cost Additional phrasing for total or out-of-pocket
+costs costt4_a, total_cost tuition Specific cost component;
+distinguishes from housing or fees tuitionfee_in, tuitionfee_out income
+Household income categories, or income-based subgroup measures depinc,
+par_ed_inc_q1, mn_earn_inc2 control Institution type (e.g., public vs
+private) — highly predictive of pricing and aid structure control,
+inst_control npt Net price measures (more complete than just “price”)
+npt4_pub, npt41_priv c150 Standard federal graduation rate measure
+(within 150% of program time) c150_4, c150_l4 sat Selectivity proxy for
+institutional quality or student preparation sat_avg, sat_total distance
+Whether program is online (distance education) — important for modern
+delivery modes distance cip Field of study code — allows linking to
+academic discipline cipcode, cipdesc</p>
+<pre class="r"><code>## Step 4: Relevance Filtering (Keyword Matching)
+
+# Store column counts before filtering
+ncol_inst_before_relevance &lt;- ncol(institution_data_final)
+ncol_field_before_relevance &lt;- ncol(fieldofstudy_data_final)
+
+# Define keywords related to earnings, equity, debt, cost, completion, student background
+relevance_keywords &lt;- c(&quot;earn&quot;, &quot;debt&quot;, &quot;grad&quot;, &quot;completion&quot;, &quot;pell&quot;, &quot;loan&quot;,
+                        &quot;price&quot;, &quot;cost&quot;, &quot;tuition&quot;, &quot;income&quot;, &quot;control&quot;, &quot;npt&quot;, &quot;c150&quot;, &quot;sat&quot;, &quot;distance&quot;, &quot;cip&quot;)
+
+# Function to match any variable names containing the keywords
+keyword_filter &lt;- function(df, keywords) {
+  pattern &lt;- paste(keywords, collapse = &quot;|&quot;)
+  matched_vars &lt;- names(df)[str_detect(names(df), regex(pattern, ignore_case = TRUE))]
+  df_filtered &lt;- df %&gt;% select(all_of(matched_vars))
+  return(df_filtered)
+}
+
+# Apply to datasets
+institution_data_final_filtered &lt;- keyword_filter(institution_data_final, relevance_keywords)
+fieldofstudy_data_final_filtered &lt;- keyword_filter(fieldofstudy_data_final, relevance_keywords)
+
+# Output summaries
+cat(&quot;Institution-level dataset:\n&quot;)</code></pre>
+<pre><code>## Institution-level dataset:</code></pre>
+<pre class="r"><code>cat(&quot;- Before relevance filtering:&quot;, ncol_inst_before_relevance, &quot;\n&quot;)</code></pre>
+<pre><code>## - Before relevance filtering: 2192</code></pre>
+<pre class="r"><code>cat(&quot;- Retained after keyword filtering:&quot;, ncol(institution_data_final_filtered), &quot;\n\n&quot;)</code></pre>
+<pre><code>## - Retained after keyword filtering: 588</code></pre>
+<pre class="r"><code>cat(&quot;Field-of-study-level dataset:\n&quot;)</code></pre>
+<pre><code>## Field-of-study-level dataset:</code></pre>
+<pre class="r"><code>cat(&quot;- Before relevance filtering:&quot;, ncol_field_before_relevance, &quot;\n&quot;)</code></pre>
+<pre><code>## - Before relevance filtering: 133</code></pre>
+<pre class="r"><code>cat(&quot;- Retained after keyword filtering:&quot;, ncol(fieldofstudy_data_final_filtered), &quot;\n&quot;)</code></pre>
+<pre><code>## - Retained after keyword filtering: 110</code></pre>
+</div>
+</div>
 
 
 

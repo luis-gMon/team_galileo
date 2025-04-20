@@ -192,18 +192,18 @@ cat("- Retained after variance filtering:", ncol(fieldofstudy_data_filtered2), "
 ```
 
 
-##🔁 Step 3: Redundancy Filtering (Correlation > 0.95)
-The next step is to remove redundant numeric variables that are highly correlated (e.g., correlation > 0.95). These can lead to multicollinearity in regression models and should be pruned to improve model stability and interpretability.
+##🔁 Step 3: Redundancy Filtering (Correlation > 0.90)
+The next step is to remove redundant numeric variables that are highly correlated (e.g., correlation > 0.90). These can lead to multicollinearity in regression models and should be pruned to improve model stability and interpretability.
 
 ```{r}
-## Step 3: Redundancy Filtering via Correlation (r > 0.95)
+## Step 3: Redundancy Filtering via Correlation (r > 0.90)
 
 # Store counts before correlation filtering
 ncol_inst_before_correlation <- ncol(institution_data_filtered2)
 ncol_field_before_correlation <- ncol(fieldofstudy_data_filtered2)
 
 # Function to remove one variable from each highly correlated pair
-correlation_filter <- function(df, cutoff = 0.95) {
+correlation_filter <- function(df, cutoff = 0.90) {
   numeric_df <- df %>% select(where(is.numeric))
   cor_matrix <- cor(numeric_df, use = "pairwise.complete.obs")
   
@@ -218,11 +218,11 @@ correlation_filter <- function(df, cutoff = 0.95) {
 }
 
 # Apply to institution-level filtered data
-inst_cor <- correlation_filter(institution_data_filtered2, cutoff = 0.95)
+inst_cor <- correlation_filter(institution_data_filtered2, cutoff = 0.90)
 institution_data_final <- inst_cor$filtered_data
 
 # Apply to field-of-study filtered data
-field_cor <- correlation_filter(fieldofstudy_data_filtered2, cutoff = 0.95)
+field_cor <- correlation_filter(fieldofstudy_data_filtered2, cutoff = 0.90)
 fieldofstudy_data_final <- field_cor$filtered_data
 
 # Print summary
@@ -236,3 +236,65 @@ cat("- Retained after correlation filtering:", ncol(fieldofstudy_data_final), "\
 
 ```
 
+##✅ Step 4: Relevance Filtering (Keyword-Based)
+We will:
+
+Define a list of keyword stems (e.g., earn, pell, loan)
+
+Apply these to variable names
+
+Keep only variables that match these themes.
+
+✅ Keyword Explanation for Relevance Filtering
+
+Keyword	Justification	Example Variable Names
+earn	Captures post-graduation earnings (e.g., 1-year, 3-year, 10-year)	earn_mdn, md_earn_wne_p10
+debt	Represents student debt levels and financial burden	debt_mdn, debt_female_any_mdn
+grad	Includes variables related to graduation rates and completion	grad_rate, grad_100_yrs
+completion	Broader term that may capture alternate completion metrics (e.g., 150% time)	c150_4, completion_rate_fed_yr3_rt
+pell	Indicates low-income background proxy (students receiving Pell Grants)	pctpell, pell_ewd_yr6_rt
+loan	Flags federal loan participation, relevant to affordability and default outcomes	pctfloan, loan_comp_orig_yr3_rt
+price	Institutional sticker price or net price values	net_price, price_calculator_url
+cost	Additional phrasing for total or out-of-pocket costs	costt4_a, total_cost
+tuition	Specific cost component; distinguishes from housing or fees	tuitionfee_in, tuitionfee_out
+income	Household income categories, or income-based subgroup measures	depinc, par_ed_inc_q1, mn_earn_inc2
+control	Institution type (e.g., public vs private) — highly predictive of pricing and aid structure	control, inst_control
+npt	Net price measures (more complete than just "price")	npt4_pub, npt41_priv
+c150	Standard federal graduation rate measure (within 150% of program time)	c150_4, c150_l4
+sat	Selectivity proxy for institutional quality or student preparation	sat_avg, sat_total
+distance	Whether program is online (distance education) — important for modern delivery modes	distance
+cip	Field of study code — allows linking to academic discipline	cipcode, cipdesc
+
+```{r}
+## Step 4: Relevance Filtering (Keyword Matching)
+
+# Store column counts before filtering
+ncol_inst_before_relevance <- ncol(institution_data_final)
+ncol_field_before_relevance <- ncol(fieldofstudy_data_final)
+
+# Define keywords related to earnings, equity, debt, cost, completion, student background
+relevance_keywords <- c("earn", "debt", "grad", "completion", "pell", "loan",
+                        "price", "cost", "tuition", "income", "control", "npt", "c150", "sat", "distance", "cip")
+
+# Function to match any variable names containing the keywords
+keyword_filter <- function(df, keywords) {
+  pattern <- paste(keywords, collapse = "|")
+  matched_vars <- names(df)[str_detect(names(df), regex(pattern, ignore_case = TRUE))]
+  df_filtered <- df %>% select(all_of(matched_vars))
+  return(df_filtered)
+}
+
+# Apply to datasets
+institution_data_final_filtered <- keyword_filter(institution_data_final, relevance_keywords)
+fieldofstudy_data_final_filtered <- keyword_filter(fieldofstudy_data_final, relevance_keywords)
+
+# Output summaries
+cat("Institution-level dataset:\n")
+cat("- Before relevance filtering:", ncol_inst_before_relevance, "\n")
+cat("- Retained after keyword filtering:", ncol(institution_data_final_filtered), "\n\n")
+
+cat("Field-of-study-level dataset:\n")
+cat("- Before relevance filtering:", ncol_field_before_relevance, "\n")
+cat("- Retained after keyword filtering:", ncol(fieldofstudy_data_final_filtered), "\n")
+
+```
