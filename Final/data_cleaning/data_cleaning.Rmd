@@ -73,7 +73,7 @@ skim(fieldofstudy_data)
 
 ## 🎯 Motivation for Variable Trimming
 
-Both Datasets are too complex. We need to reduce varibales.
+Both Datasets are too complex with more than 3000 varibables. We need to select relevant variables but sadly we can´t look at the codebook to manually select them. We could use an LLM to do this work "manually" for us but instead we propose an alternative solution. We porpose an approach for varaible trimming using a formal vetting criteria. 
 
 The rationale for reducing the number of variables is to:
 - Prevent **overfitting** in our models
@@ -106,6 +106,17 @@ Use keyword-based filtering and human inspection to prioritize variables related
 - Costs (`price`, `net`, `tuition`)
 - Outcomes (`earn`, `grad`, `debt`, `completion`)
 - Institution or program type (`control`, `credlev`, `cipcode`)
+
+##🛠 Step 0: Tag preservation
+After runnning the variable trimming process once, we discovered that we inadvertedly removed relevant tags that were needed for out analyisis
+Therefore we added two additional tag preservation steps: we remove the tags before doing trimming and we re-attach them at the end. 
+
+```{r}
+# Before filtering
+institution_ids <- institution_data %>% select(unitid, instnm, city, stabbr, zip)
+fieldofstudy_ids <- fieldofstudy_data %>% select(unitid, instnm, cipcode, cipdesc, credlev)
+
+```
 
 
 
@@ -245,25 +256,34 @@ Apply these to variable names
 
 Keep only variables that match these themes.
 
-✅ Keyword Explanation for Relevance Filtering
+## Keyword-Based Relevance Filtering: Explanation
+```{r}
+library(tibble)
+library(knitr)
 
-Keyword	Justification	Example Variable Names
-earn	Captures post-graduation earnings (e.g., 1-year, 3-year, 10-year)	earn_mdn, md_earn_wne_p10
-debt	Represents student debt levels and financial burden	debt_mdn, debt_female_any_mdn
-grad	Includes variables related to graduation rates and completion	grad_rate, grad_100_yrs
-completion	Broader term that may capture alternate completion metrics (e.g., 150% time)	c150_4, completion_rate_fed_yr3_rt
-pell	Indicates low-income background proxy (students receiving Pell Grants)	pctpell, pell_ewd_yr6_rt
-loan	Flags federal loan participation, relevant to affordability and default outcomes	pctfloan, loan_comp_orig_yr3_rt
-price	Institutional sticker price or net price values	net_price, price_calculator_url
-cost	Additional phrasing for total or out-of-pocket costs	costt4_a, total_cost
-tuition	Specific cost component; distinguishes from housing or fees	tuitionfee_in, tuitionfee_out
-income	Household income categories, or income-based subgroup measures	depinc, par_ed_inc_q1, mn_earn_inc2
-control	Institution type (e.g., public vs private) — highly predictive of pricing and aid structure	control, inst_control
-npt	Net price measures (more complete than just "price")	npt4_pub, npt41_priv
-c150	Standard federal graduation rate measure (within 150% of program time)	c150_4, c150_l4
-sat	Selectivity proxy for institutional quality or student preparation	sat_avg, sat_total
-distance	Whether program is online (distance education) — important for modern delivery modes	distance
-cip	Field of study code — allows linking to academic discipline	cipcode, cipdesc
+keyword_justification <- tribble(
+  ~Keyword, ~Justification, ~`Example Variable Names`,
+  "earn", "Captures post-graduation earnings (e.g., 1-year, 3-year, 10-year)", "earn_mdn, md_earn_wne_p10",
+  "debt", "Represents student debt levels and financial burden", "debt_mdn, debt_female_any_mdn",
+  "grad", "Includes variables related to graduation rates and completion", "grad_rate, grad_100_yrs",
+  "completion", "Broader term that may capture alternate completion metrics (e.g., 150% time)", "c150_4, completion_rate_fed_yr3_rt",
+  "pell", "Indicates low-income background proxy (students receiving Pell Grants)", "pctpell, pell_ewd_yr6_rt",
+  "loan", "Flags federal loan participation, relevant to affordability and default outcomes", "pctfloan, loan_comp_orig_yr3_rt",
+  "price", "Institutional sticker price or net price values", "net_price, price_calculator_url",
+  "cost", "Additional phrasing for total or out-of-pocket costs", "costt4_a, total_cost",
+  "tuition", "Specific cost component; distinguishes from housing or fees", "tuitionfee_in, tuitionfee_out",
+  "income", "Household income categories, or income-based subgroup measures", "depinc, par_ed_inc_q1, mn_earn_inc2",
+  "control", "Institution type (e.g., public vs private) — highly predictive of pricing and aid structure", "control, inst_control",
+  "npt", "Net price measures (more complete than just “price”)", "npt4_pub, npt41_priv",
+  "c150", "Standard federal graduation rate measure (within 150% of program time)", "c150_4, c150_l4",
+  "sat", "Selectivity proxy for institutional quality or student preparation", "sat_avg, sat_total",
+  "distance", "Whether program is online (distance education) — important for modern delivery modes", "distance",
+  "cip", "Field of study code — allows linking to academic discipline", "cipcode, cipdesc"
+)
+
+kable(keyword_justification, caption = "Table: Justification for Relevance Filtering Keywords")
+
+```
 
 ```{r}
 ## Step 4: Relevance Filtering (Keyword Matching)
@@ -296,5 +316,63 @@ cat("- Retained after keyword filtering:", ncol(institution_data_final_filtered)
 cat("Field-of-study-level dataset:\n")
 cat("- Before relevance filtering:", ncol_field_before_relevance, "\n")
 cat("- Retained after keyword filtering:", ncol(fieldofstudy_data_final_filtered), "\n")
+
+```
+
+##🛠 Step 4+1: Tag preservation
+```{r}
+# After final filtering
+institution_data_final_filtered <- bind_cols(institution_ids, institution_data_final_filtered)
+fieldofstudy_data_final_filtered <- bind_cols(fieldofstudy_ids, fieldofstudy_data_final_filtered)
+```
+
+
+
+## 📤 Module 1: Export Cleaned Datasets to CSV
+This step exports the final filtered RAW versions of both datasets. n.b. we´re still keeping all rows.
+```{r}
+ # Create output folder if it doesn't exist
+if (!dir.exists("output")) dir.create("output")
+
+# Write filtered datasets
+write_csv(institution_data_final_filtered, "output/institution_data_filtered.csv")
+write_csv(fieldofstudy_data_final_filtered, "output/fieldofstudy_data_filtered.csv")
+
+cat("✅ Cleaned datasets exported to /output folder.\n")
+```
+
+##🎯 Module 2: Sample Institutions and Filter Program-Level Data
+This step:
+
+Samples n institutions from the filtered institution dataset
+
+Filters the program-level dataset for those institutions
+
+Writes both samples to CSV
+```{r}
+## Module 2: Sample Institutions and Filter Field-of-Study Data
+
+# Set seed for reproducibility
+set.seed(2025)
+
+# Set sample size
+n_sample <- 1000  # You can modify this as needed
+
+# Sample UNITIDs from the institution dataset
+sampled_unitids <- sample(institution_data_final_filtered$unitid, size = n_sample)
+
+# Subset institution-level data
+institution_sample <- institution_data_final_filtered %>%
+  filter(unitid %in% sampled_unitids)
+
+# Subset field-of-study-level data for those institutions
+fieldofstudy_sample <- fieldofstudy_data_final_filtered %>%
+  filter(unitid %in% sampled_unitids)
+
+# Write both samples to CSV
+write_csv(institution_sample, "output/institution_sample_1000.csv")
+write_csv(fieldofstudy_sample, "output/fieldofstudy_sample_000.csv")
+
+cat("✅ Sample of", n_sample, "institutions exported to /output folder.\n")
 
 ```

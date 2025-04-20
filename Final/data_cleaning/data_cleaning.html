@@ -41291,7 +41291,11 @@ skim(fieldofstudy_data)</code></pre>
 </div>
 <div id="motivation-for-variable-trimming" class="section level2">
 <h2>🎯 Motivation for Variable Trimming</h2>
-<p>Both Datasets are too complex. We need to reduce varibales.</p>
+<p>Both Datasets are too complex with more than 3000 varibables. We need
+to select relevant variables but sadly we can´t look at the codebook to
+manually select them. We could use an LLM to do this work “manually” for
+us but instead we propose an alternative solution. We porpose an
+approach for varaible trimming using a formal vetting criteria.</p>
 <p>The rationale for reducing the number of variables is to: - Prevent
 <strong>overfitting</strong> in our models - Improve
 <strong>interpretability</strong> of findings - Eliminate
@@ -41336,6 +41340,14 @@ variables related to: - Student aid (<code>pell</code>,
 <code>debt</code>, <code>completion</code>) - Institution or program
 type (<code>control</code>, <code>credlev</code>,
 <code>cipcode</code>)</p>
+<p>##🛠 Step 0: Tag preservation After runnning the variable trimming
+process once, we discovered that we inadvertedly removed relevant tags
+that were needed for out analyisis Therefore we added two additional tag
+preservation steps: we remove the tags before doing trimming and we
+re-attach them at the end.</p>
+<pre class="r"><code># Before filtering
+institution_ids &lt;- institution_data %&gt;% select(unitid, instnm, city, stabbr, zip)
+fieldofstudy_ids &lt;- fieldofstudy_data %&gt;% select(unitid, instnm, cipcode, cipdesc, credlev)</code></pre>
 <p>##📉 Step 1: Coverage Filtering (≥ 90%)</p>
 <p>The first step in our variable vetting process is to remove variables
 that have <strong>too many missing values</strong>. Variables missing in
@@ -41476,31 +41488,146 @@ cat(&quot;Institution-level dataset:\n&quot;)</code></pre>
 <p>Define a list of keyword stems (e.g., earn, pell, loan)</p>
 <p>Apply these to variable names</p>
 <p>Keep only variables that match these themes.</p>
-<p>✅ Keyword Explanation for Relevance Filtering</p>
-<p>Keyword Justification Example Variable Names earn Captures
-post-graduation earnings (e.g., 1-year, 3-year, 10-year) earn_mdn,
-md_earn_wne_p10 debt Represents student debt levels and financial burden
-debt_mdn, debt_female_any_mdn grad Includes variables related to
-graduation rates and completion grad_rate, grad_100_yrs completion
-Broader term that may capture alternate completion metrics (e.g., 150%
-time) c150_4, completion_rate_fed_yr3_rt pell Indicates low-income
-background proxy (students receiving Pell Grants) pctpell,
-pell_ewd_yr6_rt loan Flags federal loan participation, relevant to
-affordability and default outcomes pctfloan, loan_comp_orig_yr3_rt price
-Institutional sticker price or net price values net_price,
-price_calculator_url cost Additional phrasing for total or out-of-pocket
-costs costt4_a, total_cost tuition Specific cost component;
-distinguishes from housing or fees tuitionfee_in, tuitionfee_out income
-Household income categories, or income-based subgroup measures depinc,
-par_ed_inc_q1, mn_earn_inc2 control Institution type (e.g., public vs
-private) — highly predictive of pricing and aid structure control,
-inst_control npt Net price measures (more complete than just “price”)
-npt4_pub, npt41_priv c150 Standard federal graduation rate measure
-(within 150% of program time) c150_4, c150_l4 sat Selectivity proxy for
-institutional quality or student preparation sat_avg, sat_total distance
-Whether program is online (distance education) — important for modern
-delivery modes distance cip Field of study code — allows linking to
-academic discipline cipcode, cipdesc</p>
+</div>
+</div>
+<div id="keyword-based-relevance-filtering-explanation" class="section level2">
+<h2>Keyword-Based Relevance Filtering: Explanation</h2>
+<pre class="r"><code>library(tibble)
+library(knitr)
+
+keyword_justification &lt;- tribble(
+  ~Keyword, ~Justification, ~`Example Variable Names`,
+  &quot;earn&quot;, &quot;Captures post-graduation earnings (e.g., 1-year, 3-year, 10-year)&quot;, &quot;earn_mdn, md_earn_wne_p10&quot;,
+  &quot;debt&quot;, &quot;Represents student debt levels and financial burden&quot;, &quot;debt_mdn, debt_female_any_mdn&quot;,
+  &quot;grad&quot;, &quot;Includes variables related to graduation rates and completion&quot;, &quot;grad_rate, grad_100_yrs&quot;,
+  &quot;completion&quot;, &quot;Broader term that may capture alternate completion metrics (e.g., 150% time)&quot;, &quot;c150_4, completion_rate_fed_yr3_rt&quot;,
+  &quot;pell&quot;, &quot;Indicates low-income background proxy (students receiving Pell Grants)&quot;, &quot;pctpell, pell_ewd_yr6_rt&quot;,
+  &quot;loan&quot;, &quot;Flags federal loan participation, relevant to affordability and default outcomes&quot;, &quot;pctfloan, loan_comp_orig_yr3_rt&quot;,
+  &quot;price&quot;, &quot;Institutional sticker price or net price values&quot;, &quot;net_price, price_calculator_url&quot;,
+  &quot;cost&quot;, &quot;Additional phrasing for total or out-of-pocket costs&quot;, &quot;costt4_a, total_cost&quot;,
+  &quot;tuition&quot;, &quot;Specific cost component; distinguishes from housing or fees&quot;, &quot;tuitionfee_in, tuitionfee_out&quot;,
+  &quot;income&quot;, &quot;Household income categories, or income-based subgroup measures&quot;, &quot;depinc, par_ed_inc_q1, mn_earn_inc2&quot;,
+  &quot;control&quot;, &quot;Institution type (e.g., public vs private) — highly predictive of pricing and aid structure&quot;, &quot;control, inst_control&quot;,
+  &quot;npt&quot;, &quot;Net price measures (more complete than just “price”)&quot;, &quot;npt4_pub, npt41_priv&quot;,
+  &quot;c150&quot;, &quot;Standard federal graduation rate measure (within 150% of program time)&quot;, &quot;c150_4, c150_l4&quot;,
+  &quot;sat&quot;, &quot;Selectivity proxy for institutional quality or student preparation&quot;, &quot;sat_avg, sat_total&quot;,
+  &quot;distance&quot;, &quot;Whether program is online (distance education) — important for modern delivery modes&quot;, &quot;distance&quot;,
+  &quot;cip&quot;, &quot;Field of study code — allows linking to academic discipline&quot;, &quot;cipcode, cipdesc&quot;
+)
+
+kable(keyword_justification, caption = &quot;Table: Justification for Relevance Filtering Keywords&quot;)</code></pre>
+<table>
+<caption>Table: Justification for Relevance Filtering Keywords</caption>
+<colgroup>
+<col width="7%" />
+<col width="66%" />
+<col width="25%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Keyword</th>
+<th align="left">Justification</th>
+<th align="left">Example Variable Names</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">earn</td>
+<td align="left">Captures post-graduation earnings (e.g., 1-year,
+3-year, 10-year)</td>
+<td align="left">earn_mdn, md_earn_wne_p10</td>
+</tr>
+<tr class="even">
+<td align="left">debt</td>
+<td align="left">Represents student debt levels and financial
+burden</td>
+<td align="left">debt_mdn, debt_female_any_mdn</td>
+</tr>
+<tr class="odd">
+<td align="left">grad</td>
+<td align="left">Includes variables related to graduation rates and
+completion</td>
+<td align="left">grad_rate, grad_100_yrs</td>
+</tr>
+<tr class="even">
+<td align="left">completion</td>
+<td align="left">Broader term that may capture alternate completion
+metrics (e.g., 150% time)</td>
+<td align="left">c150_4, completion_rate_fed_yr3_rt</td>
+</tr>
+<tr class="odd">
+<td align="left">pell</td>
+<td align="left">Indicates low-income background proxy (students
+receiving Pell Grants)</td>
+<td align="left">pctpell, pell_ewd_yr6_rt</td>
+</tr>
+<tr class="even">
+<td align="left">loan</td>
+<td align="left">Flags federal loan participation, relevant to
+affordability and default outcomes</td>
+<td align="left">pctfloan, loan_comp_orig_yr3_rt</td>
+</tr>
+<tr class="odd">
+<td align="left">price</td>
+<td align="left">Institutional sticker price or net price values</td>
+<td align="left">net_price, price_calculator_url</td>
+</tr>
+<tr class="even">
+<td align="left">cost</td>
+<td align="left">Additional phrasing for total or out-of-pocket
+costs</td>
+<td align="left">costt4_a, total_cost</td>
+</tr>
+<tr class="odd">
+<td align="left">tuition</td>
+<td align="left">Specific cost component; distinguishes from housing or
+fees</td>
+<td align="left">tuitionfee_in, tuitionfee_out</td>
+</tr>
+<tr class="even">
+<td align="left">income</td>
+<td align="left">Household income categories, or income-based subgroup
+measures</td>
+<td align="left">depinc, par_ed_inc_q1, mn_earn_inc2</td>
+</tr>
+<tr class="odd">
+<td align="left">control</td>
+<td align="left">Institution type (e.g., public vs private) — highly
+predictive of pricing and aid structure</td>
+<td align="left">control, inst_control</td>
+</tr>
+<tr class="even">
+<td align="left">npt</td>
+<td align="left">Net price measures (more complete than just
+“price”)</td>
+<td align="left">npt4_pub, npt41_priv</td>
+</tr>
+<tr class="odd">
+<td align="left">c150</td>
+<td align="left">Standard federal graduation rate measure (within 150%
+of program time)</td>
+<td align="left">c150_4, c150_l4</td>
+</tr>
+<tr class="even">
+<td align="left">sat</td>
+<td align="left">Selectivity proxy for institutional quality or student
+preparation</td>
+<td align="left">sat_avg, sat_total</td>
+</tr>
+<tr class="odd">
+<td align="left">distance</td>
+<td align="left">Whether program is online (distance education) —
+important for modern delivery modes</td>
+<td align="left">distance</td>
+</tr>
+<tr class="even">
+<td align="left">cip</td>
+<td align="left">Field of study code — allows linking to academic
+discipline</td>
+<td align="left">cipcode, cipdesc</td>
+</tr>
+</tbody>
+</table>
 <pre class="r"><code>## Step 4: Relevance Filtering (Keyword Matching)
 
 # Store column counts before filtering
@@ -41536,7 +41663,59 @@ cat(&quot;Institution-level dataset:\n&quot;)</code></pre>
 <pre><code>## - Before relevance filtering: 133</code></pre>
 <pre class="r"><code>cat(&quot;- Retained after keyword filtering:&quot;, ncol(fieldofstudy_data_final_filtered), &quot;\n&quot;)</code></pre>
 <pre><code>## - Retained after keyword filtering: 110</code></pre>
+<p>##🛠 Step 4+1: Tag preservation</p>
+<pre class="r"><code># After final filtering
+institution_data_final_filtered &lt;- bind_cols(institution_ids, institution_data_final_filtered)
+fieldofstudy_data_final_filtered &lt;- bind_cols(fieldofstudy_ids, fieldofstudy_data_final_filtered)</code></pre>
+<pre><code>## New names:
+## • `cipcode` -&gt; `cipcode...3`
+## • `cipdesc` -&gt; `cipdesc...4`
+## • `cipcode` -&gt; `cipcode...8`
+## • `cipdesc` -&gt; `cipdesc...9`</code></pre>
 </div>
+<div id="module-1-export-cleaned-datasets-to-csv" class="section level2">
+<h2>📤 Module 1: Export Cleaned Datasets to CSV</h2>
+<p>This step exports the final filtered RAW versions of both datasets.
+n.b. we´re still keeping all rows.</p>
+<pre class="r"><code> # Create output folder if it doesn&#39;t exist
+if (!dir.exists(&quot;output&quot;)) dir.create(&quot;output&quot;)
+
+# Write filtered datasets
+write_csv(institution_data_final_filtered, &quot;output/institution_data_filtered.csv&quot;)
+write_csv(fieldofstudy_data_final_filtered, &quot;output/fieldofstudy_data_filtered.csv&quot;)
+
+cat(&quot;✅ Cleaned datasets exported to /output folder.\n&quot;)</code></pre>
+<pre><code>## ✅ Cleaned datasets exported to /output folder.</code></pre>
+<p>##🎯 Module 2: Sample Institutions and Filter Program-Level Data This
+step:</p>
+<p>Samples n institutions from the filtered institution dataset</p>
+<p>Filters the program-level dataset for those institutions</p>
+<p>Writes both samples to CSV</p>
+<pre class="r"><code>## Module 2: Sample Institutions and Filter Field-of-Study Data
+
+# Set seed for reproducibility
+set.seed(2025)
+
+# Set sample size
+n_sample &lt;- 1000  # You can modify this as needed
+
+# Sample UNITIDs from the institution dataset
+sampled_unitids &lt;- sample(institution_data_final_filtered$unitid, size = n_sample)
+
+# Subset institution-level data
+institution_sample &lt;- institution_data_final_filtered %&gt;%
+  filter(unitid %in% sampled_unitids)
+
+# Subset field-of-study-level data for those institutions
+fieldofstudy_sample &lt;- fieldofstudy_data_final_filtered %&gt;%
+  filter(unitid %in% sampled_unitids)
+
+# Write both samples to CSV
+write_csv(institution_sample, &quot;output/institution_sample_1000.csv&quot;)
+write_csv(fieldofstudy_sample, &quot;output/fieldofstudy_sample_000.csv&quot;)
+
+cat(&quot;✅ Sample of&quot;, n_sample, &quot;institutions exported to /output folder.\n&quot;)</code></pre>
+<pre><code>## ✅ Sample of 1000 institutions exported to /output folder.</code></pre>
 </div>
 
 
