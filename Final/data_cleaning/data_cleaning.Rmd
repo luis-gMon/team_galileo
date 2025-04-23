@@ -466,7 +466,6 @@ rf_tune_res <- tune_grid(
   grid      = rf_grid,
   metrics   = metric_set(rmse, rsq)
 )
-
 # select best set of params by RMSE
 best_rf <- select_best(rf_tune_res, "rmse")
 
