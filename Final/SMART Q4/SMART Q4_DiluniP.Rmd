@@ -1,0 +1,393 @@
+---
+title: "Final Project- SMART Q4"
+author: "Diluni Peiris"
+date: "18/4/2025"
+# date: "`r Sys.Date()`"
+output:
+  html_document:
+    code_folding: hide
+    number_sections: false
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r init, include=FALSE}
+# some of common options (and the defaults) are: 
+# include=T, eval=T, echo=T, results='hide'/'asis'/'markup',..., collapse=F, warning=T, message=T, error=T, cache=T, fig.width=6, fig.height=4, fig.dim=c(6,4) #inches, fig.align='left'/'center','right', 
+library(ezids)
+# knitr::opts_chunk$set(warning = F, results = "markup", message = F)
+knitr::opts_chunk$set(warning = F, results = "hide", message = F)
+options(scientific=T, digits = 3) 
+# options(scipen=9, digits = 3) 
+# ‘scipen’: integer. A penalty to be applied when deciding to print numeric values in fixed or exponential notation.  Positive values bias towards fixed and negative towards scientific notation: fixed notation will be preferred unless it is more than ‘scipen’ digits wider.
+# use scipen=999 to prevent scientific notation at all times
+```
+
+```{r include=FALSE}
+library(car)
+library(ggplot2)
+library(reshape2)
+library(corrplot)
+library(dplyr)
+library(randomForest)
+library(lme4)         
+library(fixest)        
+library(glmnet)       
+library(plotmo)  
+```
+
+
+# SMART Q4
+
+## Importing Dataset 
+
+```{r include=FALSE}
+Edu <- data.frame(read.csv("SMART Q4 Data.csv"))
+```
+
+
+```{r}
+str(Edu)
+```
+
+```{r}
+ggplot(Edu, aes(x = distance)) +
+  geom_bar( fill = "steelblue") +
+  labs(
+    title = "Distribution of Learning types",
+    x = "Learning Type"
+      ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text( hjust = 1))
+```
+
+## Data Cleaning 
+
+### 1. Distance Variable 
+
+* Removing cataegory 0 : Field of study not reported to IPEDS
+* Combining 1 and 2 : Not all can be done online in this field of study 
+
+```{r}
+df_clean <- Edu %>%
+  filter(distance != 0 ) %>%
+  mutate(distance = case_when(
+    distance %in% c(1, 2) ~ "Most credentials onsite",
+    distance == 3 ~ "All credentials online"
+  ))
+
+```
+
+
+### 2. Filtering STEM fields
+
+```{r}
+df_clean <- subset(df_clean, STEM.Classification == "STEM")
+```
+
+
+### 3. Drop and Rename Variables
+
+* unitid and instnm indicates the same dropping instnm.
+* Dropping STEM.Classification column as it only contains STEM fields.
+* Updating PS and null
+* Renaming columns
+
+```{r}
+df <- subset(df_clean, select = -instnm)
+
+df <- subset(df, select = -STEM.Classification)
+
+# Replace all occurrences of "PS" with 0 in the entire data frame
+df[df == "PS"] <- 0
+
+#Renaming Variables
+new_names <- c("school_id", "course_field","credit_level", "delivery_mode", "school_type", "earnings", "no_of_pell_grants")
+
+colnames(df) <- new_names
+
+```
+
+
+### 4. Updating variable types
+```{r}
+df$school_id <- factor(df$school_id)
+df$course_field <- factor(df$course_field)
+df$credit_level<- factor(df$credit_level)
+df$delivery_mode <- factor(df$delivery_mode,
+                                        levels = c("Most credentials onsite", "All credentials online"))
+df$school_type <- factor(df$school_type)
+df$earnings <- as.integer(df$earnings)
+df$no_of_pell_grants <- as.integer(df$no_of_pell_grants)
+
+str(df)
+
+```
+
+### 5. Identifying and Remocing Outliers of the target variable [Revenue]
+```{r}
+# Create a boxplot to visualize the outliers
+boxplot(df$earnings, main = "Boxplot of Earnings", ylab = "Earnings")
+```
+
+### Removing outliers in Earnings
+```{r}
+# Calculate the Z-scores for the 'earnings' column
+z_scores <- (df$earnings - mean(df$earnings, na.rm = TRUE)) / sd(df$earnings, na.rm = TRUE)
+
+# Identify outliers (values with |Z| > 3)
+outliers_zscore <- df$earnings[abs(z_scores) > 3]
+
+# Count the number of outliers
+num_outliers_zscore <- length(outliers_zscore)
+num_outliers_zscore
+
+# Filter out the rows where |Z| <= 3 (i.e., remove outliers)
+df <- df[abs(z_scores) <= 3, ]
+```
+
+
+## EDA
+
+```{r}
+ggplot(df, aes(x = delivery_mode)) +
+  geom_bar( fill = "steelblue") +
+  labs(
+    title = "Distribution of Learning types",
+    x = "Learning Type"
+      ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text( hjust = 1))
+```
+
+```{r}
+ggplot(df, aes(x = credit_level)) +
+  geom_bar( fill = "steelblue") +
+  labs(
+    title = "Distribution of credit_level",
+    x = "credit_level"
+      ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text( hjust = 1))
+```
+
+```{r}
+ggplot(df, aes(x = school_type)) +
+  geom_bar( fill = "steelblue") +
+  labs(
+    title = "Distribution of school_type",
+    x = "school_type"
+      ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text( hjust = 1))
+```
+
+```{r}
+# Visualize earnings distribution by education type
+ggplot(df, aes(x = earnings, fill = delivery_mode)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Earnings Distribution by Education Type",
+       x = "Annual Earnings ($)",
+       y = "Density") +
+  theme_minimal()
+```
+
+## Model Building
+
+### Model 1
+
+```{r}
+df2 <- subset(df, select = -school_id)
+```
+
+
+```{r}
+#Train test split
+library(caret)
+
+set.seed(123)
+
+# Create partition
+train_index <- createDataPartition(df$earnings, p = 0.7, list = FALSE)
+
+# Split the data
+train_data <- df2[train_index, ]
+test_data  <- df2[-train_index, ]
+
+```
+
+
+```{r}
+model1 <- lm(earnings ~ ., data = train_data)
+summary(model1)
+```
+
+### 1. Model without controls 
+
+```{r}
+model1 <- lm(earnings ~ delivery_mode, data = train_data)
+summary(model1)
+```
+### 2. Model with field level characteristics
+```{r}
+model2 <- lm(earnings ~ delivery_mode + course_field, data = train_data)
+summary(model2)
+```
+
+
+### 3. Model with field level + institutional characteristics
+
+```{r}
+model3 <- lm(earnings ~ ., data = train_data)
+summary(model3)
+```
+
+### 4. Regularization 
+
+1. Ridge Regression
+```{r}
+# 1. Prepare data for regularized regression
+
+# Create model matrix for glmnet (converts factors to dummy variables)
+# Remove the response variable (median_earnings) 
+X <- model.matrix(earnings ~ . , data = df)[,-1]
+y <- df$earnings
+
+# Split data into training and testing sets
+set.seed(123)
+train_indices <- sample(1:nrow(X), 0.8 * nrow(X))
+X_train <- X[train_indices, ]
+y_train <- y[train_indices]
+X_test <- X[-train_indices, ]
+y_test <- y[-train_indices]
+
+# Ridge Regression
+
+# Finding optimal lambda using cross-validation
+set.seed(123)
+ridge_cv <- cv.glmnet(X_train, y_train, alpha = 0, nfolds = 10)
+plot(ridge_cv)
+
+# Best lambda value
+best_lambda_ridge <- ridge_cv$lambda.min
+cat("Best lambda for ridge regression:", best_lambda_ridge, "\n")
+
+# Fit ridge model with optimal lambda
+ridge_model <- glmnet(X_train, y_train, alpha = 0, lambda = best_lambda_ridge)
+print(ridge_model)
+
+# Get coefficients
+ridge_coefs <- coef(ridge_model)
+ridge_coefs_df <- data.frame(
+  feature = rownames(ridge_coefs),
+  coefficient = as.vector(ridge_coefs)
+) %>%
+  filter(coefficient != 0) %>%
+  arrange(desc(abs(coefficient)))
+
+print(ridge_coefs_df)
+
+# Visualize top coefficients
+ridge_coefs_df %>%
+  filter(feature != "(Intercept)") %>%
+  top_n(15, abs(coefficient)) %>%
+  ggplot(aes(x = reorder(feature, abs(coefficient)), y = coefficient)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "Top Ridge Regression Coefficients",
+       x = "Feature",
+       y = "Coefficient Value") +
+  theme_minimal()
+
+# Evaluate ridge model on test data
+ridge_predictions <- predict(ridge_model, newx = X_test)
+ridge_rmse <- sqrt(mean((y_test - ridge_predictions)^2))
+cat("Ridge Regression RMSE:", ridge_rmse, "\n")
+
+
+```
+2. Lasso Regression
+```{r}
+# Find optimal lambda using cross-validation
+set.seed(123)
+lasso_cv <- cv.glmnet(X_train, y_train, alpha = 1, nfolds = 10)
+plot(lasso_cv)
+
+# Best lambda value
+best_lambda_lasso <- lasso_cv$lambda.min
+cat("Best lambda for lasso regression:", best_lambda_lasso, "\n")
+
+# Fit lasso model with optimal lambda
+lasso_model <- glmnet(X_train, y_train, alpha = 1, lambda = best_lambda_lasso)
+print(lasso_model)
+
+# Get coefficients - lasso will zero out some coefficients
+lasso_coefs <- coef(lasso_model)
+lasso_coefs_df <- data.frame(
+  feature = rownames(lasso_coefs),
+  coefficient = as.vector(lasso_coefs)
+) %>%
+  filter(coefficient != 0) %>%
+  arrange(desc(abs(coefficient)))
+
+print(lasso_coefs_df)
+
+# Visualize non-zero coefficients
+lasso_coefs_df %>%
+  filter(feature != "(Intercept)") %>%
+  ggplot(aes(x = reorder(feature, abs(coefficient)), y = coefficient)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "Non-Zero Lasso Regression Coefficients",
+       subtitle = "Variables selected by lasso as important predictors",
+       x = "Feature",
+       y = "Coefficient Value") +
+  theme_minimal()
+
+# Evaluate lasso model on test data
+lasso_predictions <- predict(lasso_model, newx = X_test)
+lasso_rmse <- sqrt(mean((y_test - lasso_predictions)^2))
+cat("Lasso Regression RMSE:", lasso_rmse, "\n")
+```
+### Random Forest model[Results in an error]
+
+Error in randomForest.default(m, y, ...) : 
+  Can not handle categorical predictors with more than 53 categories.
+
+```{r}
+# Training a random forest model for comparison 
+rf_model <- randomForest(
+  earnings ~ .,
+  data = df[train_indices, ],
+  ntree = 500,
+  importance = TRUE
+)
+rf_predictions <- predict(rf_model, education_data[-train_indices, ])
+rf_rmse <- sqrt(mean((y_test - rf_predictions)^2))
+```
+
+### Model Performance 
+
+1. RMSE
+```{r}
+model_comparison <- data.frame(
+  model = c("Ridge", "Lasso", "model1", "model2", "model3"),
+  rmse = c(ridge_rmse, lasso_rmse)
+))
+```
+
+
+
+
+1. Residual Plots
+```{r}
+plot(model3)
+```
