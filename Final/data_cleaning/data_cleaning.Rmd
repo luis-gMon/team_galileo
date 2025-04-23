@@ -60,7 +60,6 @@ glimpse(institution_data)
 
 # Skim summary (high-level EDA)
 skim(institution_data)
-
 ```
 
 ```{r}
