@@ -1,0 +1,238 @@
+---
+title: "eda"
+output: html_document
+date: "2025-04-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+🧠 Project Focus: SMART Questions
+Based on your earlier message, your project investigates:
+
+Can earnings be predicted by field of study, degree level, and aid profile?
+
+Do high Pell Grant programs lead to systematically lower earnings?
+
+Do online programs yield different earnings than in-person ones?
+
+🧭 Step-by-Step Strategy
+✅ 1. Data Import
+Import the original College Scorecard Field of Study dataset
+
+Ensure earnings and aid variables are properly loaded as numeric
+
+✅ 2. Data Cleaning
+Select only relevant variables (earnings, Pell %, degree type, delivery mode, field name)
+
+Convert character columns to numeric where needed
+
+Handle missing values as appropriate
+
+✅ 3. Exploratory Data Analysis (EDA)
+Plot distributions of earnings overall and by subgroup:
+
+By major (field of study)
+
+By credential level
+
+By Pell Grant level
+
+By delivery mode (distance vs in-person)
+
+✅ 4. Statistical Testing and Modeling (Later)
+T-tests, ANOVA, or regression to answer your questions quantitatively
+
+
+
+
+```{r pressure, echo=FALSE}
+library(readr)
+library(dplyr)
+
+# Load the dataset
+institute_data <- read_csv("/Users/luisgarciamontero/Documents/Repositories/team_galileo/Final/Archive/Most-Recent-Cohorts-Institution.csv")
+field_data <- read_csv("/Users/luisgarciamontero/Documents/Repositories/team_galileo/Final/Archive/Most-Recent-Cohorts-Field-of-Study.csv")
+
+# Preview structure and dimensions
+dim(field_data)
+head(field_data)
+```
+
+#📊 SMART Q1: Can earnings be predicted by field, degree, and aid?
+```{r}
+# FVerifying that we have ther right variables
+grep("earn", names(field_data), value = TRUE, ignore.case = TRUE)
+grep("pell", names(field_data), value = TRUE, ignore.case = TRUE)
+grep("loan", names(field_data), value = TRUE, ignore.case = TRUE)
+grep("distance", names(field_data), value = TRUE, ignore.case = TRUE)
+grep("credlev", names(field_data), value = TRUE, ignore.case = TRUE)
+grep("cipdesc", names(field_data), value = TRUE, ignore.case = TRUE)
+grep("income", names(field_data), value = TRUE, ignore.case = TRUE)
+
+```
+```{r}
+grep("earn", names(field_data), value = TRUE, ignore.case = TRUE)
+```
+  Pull Aid Info from institute_data
+```{r}
+
+# Extract aid-related info from institution-level data
+aid_vars <- institute_data %>%
+  select(UNITID, PCTPELL, PCTFLOAN) %>%
+  mutate(
+    PCTPELL = as.numeric(PCTPELL),
+    PCTFLOAN = as.numeric(PCTFLOAN)
+  )
+
+# Merge into field-level data
+field_clean <- field_data %>%
+  select(UNITID, EARN_MDN_1YR, CREDLEV, CIPDESC, DISTANCE) %>%
+  left_join(aid_vars, by = "UNITID") %>%
+  mutate(
+    EARN_MDN = as.numeric(EARN_MDN_1YR),
+    CREDLEV = factor(CREDLEV),
+    DISTANCE = factor(DISTANCE, levels = c(0, 1), labels = c("In-Person", "Online"))
+  ) %>%
+  filter(!is.na(EARN_MDN))
+
+
+```
+📊 Earnings by Credential Level
+
+```{r}
+library(ggplot2)
+
+ggplot(field_clean, aes(x = CREDLEV, y = EARN_MDN)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Earnings by Credential Level", x = "Credential Level", y = "Median Earnings (USD)") +
+  theme_minimal()
+
+```
+
+
+```markdown
+| Code | Credential Level                                |
+|------|--------------------------------------------------|
+| 1    | Certificate (Less than 1 year)                   |
+| 2    | Certificate (1–2 years)                          |
+| 3    | Associate’s Degree                               |
+| 4    | Certificate (More than 2 years)                  |
+| 5    | Bachelor’s Degree                                |
+| 6    | Post-baccalaureate Certificate                   |
+| 7    | Master’s Degree                                  |
+| 8    | Post-master’s Certificate                        |
+| 17   | Doctoral Degree – Research/Scholarship           |
+| 18   | Doctoral Degree – Professional Practice          |
+| 19   | Doctoral Degree – Other                          |
+```
+
+
+
+📊 Earnings by Major (Top 10 Most Frequent)
+```{r}
+top_majors <- field_clean %>%
+  count(CIPDESC, sort = TRUE) %>%
+  slice_head(n = 10) %>%
+  pull(CIPDESC)
+
+ggplot(field_clean %>% filter(CIPDESC %in% top_majors), 
+       aes(x = CIPDESC, y = EARN_MDN)) +
+  geom_boxplot(fill = "tan") +
+  labs(title = "Earnings by Major (Top 10 Fields)", x = "Field of Study", y = "Earnings") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme_minimal()
+
+```
+📉 Scatter: Pell Grant % vs Earnings
+```{r}
+ggplot(field_clean, aes(x = PCTPELL, y = EARN_MDN)) +
+  geom_point(alpha = 0.5, color = "darkgreen") +
+  geom_smooth(method = "lm", color = "black") +
+  labs(title = "Pell Grant % vs Earnings", x = "% Pell Grant", y = "Earnings") +
+  theme_minimal()
+
+```
+-SMART Question 2 Do high Pell Grant programs earn less?
+```{r}
+# grouping
+field_clean <- field_clean %>%
+  mutate(pell_group = ifelse(PCTPELL >= 0.5, "High Pell", "Low Pell"))
+
+ggplot(field_clean, aes(x = pell_group, y = EARN_MDN, fill = pell_group)) +
+  geom_boxplot() +
+  labs(title = "Earnings by Pell Grant Group", x = "Pell Grant Level", y = "Median Earnings") +
+  theme_minimal()
+
+
+```
+
+SMART Question 3
+Do online programs differ in earnings?
+
+Online vs In-Person
+```{r}
+ggplot(field_clean, aes(x = DISTANCE, y = EARN_MDN, fill = DISTANCE)) +
+  geom_boxplot() +
+  labs(title = "Earnings: Online vs In-Person Programs", x = "Program Delivery", y = "Earnings") +
+  theme_minimal()
+
+```
+
+## ANOVA by credential Level
+```{r}
+anova_credlev <- aov(EARN_MDN ~ CREDLEV, data = field_clean)
+summary(anova_credlev)
+
+```
+Significant
+```{r}
+TukeyHSD(anova_credlev)
+```
+
+2. ANOVA: Earnings by Pell Group (High vs Low)
+```{r}
+anova_pell <- aov(EARN_MDN ~ pell_group, data = field_clean)
+summary(anova_pell)
+
+```
+3. ANOVA: Earnings by Distance Mode
+```{r}
+anova_dist <- aov(EARN_MDN ~ DISTANCE, data = field_clean)
+summary(anova_dist)
+
+```
+
+
+
+Step 1: Define a Regression Model
+We can’t fully isolate causal effects without an experimental design or instrumental variable, but we can control for observable confounders to reduce bias.
+
+Model Idea:
+r
+Copy
+Edit
+EARN_MDN ~ PCTPELL + CREDLEV + DISTANCE + PCTFLOAN + CIPDESC
+This model attempts to control for differences in:
+
+Degree type (CREDLEV)
+
+Program delivery (DISTANCE)
+
+Debt and aid status (PCTFLOAN)
+
+Major (CIPDESC) — as a fixed effect if treated as a factor
+
+```{r}
+# Fit linear regression with fixed effects for field of study
+model <- lm(EARN_MDN ~ PCTPELL + PCTFLOAN + CREDLEV + DISTANCE + CIPDESC, data = field_clean)
+summary(model)
+
+```
