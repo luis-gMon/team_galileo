@@ -1,5 +1,8 @@
 ```markdown
 ```
+
+Final Powerpoint Collaboration Link: https://www.canva.com/design/DAGlZEYrML8/xyb3uAxxRnkDql71lTY3WA/edit?utm_content=DAGlZEYrML8&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton
+
 # GitHub Quick Guide
 
 A concise guide for effective GitHub collaboration using GitHub Desktop.
