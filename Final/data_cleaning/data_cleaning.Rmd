@@ -298,3 +298,207 @@ cat("- Before relevance filtering:", ncol_field_before_relevance, "\n")
 cat("- Retained after keyword filtering:", ncol(fieldofstudy_data_final_filtered), "\n")
 
 ```
+
+
+## SMART Question 1: Can post-graduation earnings be accurately predicted based on field of study, degree type, and student aid demographics?
+
+
+# Section 1: data prep + simple linear + RF.
+
+#–– Prep data
+```{r}
+df <- fieldofstudy_data_final_filtered %>%
+  select(earn_mdn, credlev, pctpell, cipdesc) %>%
+  mutate(
+    credlev = as.factor(credlev),
+    cipdesc = as.factor(cipdesc)
+  ) %>%
+  drop_na(earn_mdn, credlev, pctpell, cipdesc)
+```
+
+#–– Train/Test split
+```{r}
+set.seed(2025)
+data_split  <- initial_split(df, prop = 0.8, strata = earn_mdn)
+train_data   <- training(data_split)
+test_data    <- testing(data_split)
+```
+
+#–– Recipe: dummy‐encode categoricals, impute missings
+```{r}
+data_rec <- recipe(earn_mdn ~ credlev + pctpell + cipdesc, data = train_data) %>%
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+  step_impute_median(all_numeric_predictors())
+```
+
+#–– Model spec: Linear regression
+```{r}
+lm_spec <- linear_reg() %>%
+  set_engine("lm") %>%
+  set_mode("regression")
+
+lm_wf <- workflow() %>%
+  add_model(lm_spec) %>%
+  add_recipe(data_rec)
+```
+
+#–– Fit & evaluate linear model
+```{r}
+lm_fit <- fit(lm_wf, data = train_data)
+lm_preds <- predict(lm_fit, test_data) %>% bind_cols(test_data)
+lm_preds %>% metrics(truth = earn_mdn, estimate = .pred)
+```
+
+#–– Model spec: Random forest
+```{r}
+rf_spec <- rand_forest(trees = 500) %>%
+  set_engine("ranger") %>%
+  set_mode("regression")
+
+rf_wf <- workflow() %>%
+  add_model(rf_spec) %>%
+  add_recipe(data_rec)
+```
+
+#–– Fit & evaluate RF
+
+```{r}
+rf_fit  <- fit(rf_wf, data = train_data)
+rf_preds <- predict(rf_fit, test_data) %>% bind_cols(test_data)
+rf_preds %>% metrics(truth = earn_mdn, estimate = .pred)
+```
+
+#–– 5‐fold CV on training set
+```{r}
+cv_folds <- vfold_cv(train_data, v = 5, strata = earn_mdn)
+lm_res  <- lm_wf  %>% fit_resamples(resamples = cv_folds, metrics = metric_set(rmse, rsq))
+rf_res  <- rf_wf  %>% fit_resamples(resamples = cv_folds, metrics = metric_set(rmse, rsq))
+collect_metrics(lm_res)
+collect_metrics(rf_res)
+```
+
+
+
+# Section 2: interaction effects, residual checks, hyperparameter tuning, VIP & PDP plots.
+
+#–– Load libraries for modeling, tuning, diagnostics
+```{r smart1-advanced, message=FALSE, warning=FALSE}
+library(tidymodels)   # core modeling infrastructure
+library(vip)          # for variable‐importance plots
+library(pdp)          # for partial‐dependence plots
+library(ggplot2)      # for custom diagnostics
+```
+
+#––Prep & split data -----------------------------------------------------
+```{r}
+df <- fieldofstudy_data_final_filtered %>%
+  select(earn_mdn, credlev, pctpell, cipdesc) %>%
+  mutate(
+    credlev = factor(credlev),        # turn degree type into a categorical
+    cipdesc  = factor(cipdesc)        # field of study as a factor
+  ) %>%
+  drop_na()                           # drop any remaining missing rows
+
+set.seed(2025)
+splits    <- initial_split(df, prop = 0.8, strata = earn_mdn)
+train_df  <- training(splits)
+test_df   <- testing(splits)
+```
+
+#–– Define recipe ---------------------------------------------------------
+```{r}
+rec <- recipe(earn_mdn ~ credlev + pctpell + cipdesc, data = train_df) %>%
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%  # one‐hot encode factors
+  step_impute_median(all_numeric_predictors())              # fill any numeric NAs
+  #–– interaction term: how pctpell effect depends on credlev
+  %>% step_interact(terms = ~ pctpell:credlev)  
+```
+
+#–– Linear model + diagnostics -------------------------------------------
+```{r}
+lm_spec <- linear_reg() %>%
+  set_engine("lm") %>%
+  set_mode("regression")
+
+lm_wf <- workflow() %>%
+  add_model(lm_spec) %>%
+  add_recipe(rec)
+
+# fit on training
+lm_fit <- fit(lm_wf, data = train_df)
+
+# predict on test & evaluate
+lm_pred <- predict(lm_fit, test_df) %>% bind_cols(test_df)
+lm_pred %>% metrics(truth = earn_mdn, estimate = .pred)
+
+# residual plot to check nonlinearity / heteroskedasticity
+augment(lm_fit, test_df) %>%
+  ggplot(aes(.pred, .resid)) +
+  geom_point(alpha = 0.4) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(x = "Predicted earnings", y = "Residuals")
+```
+
+#–– Random Forest with tuning ---------------------------------------------
+```{r}
+rf_spec <- rand_forest(
+    trees = 1000,
+    mtry  = tune(),         # number of predictors sampled at each split
+    min_n = tune()          # minimal node size
+  ) %>%
+  set_engine("ranger") %>%
+  set_mode("regression")
+
+rf_wf <- workflow() %>%
+  add_model(rf_spec) %>%
+  add_recipe(rec)
+
+# 5‐fold cross‐validation on training set
+cv_folds <- vfold_cv(train_df, v = 5, strata = earn_mdn)
+
+# define a small random search grid
+rf_params <- parameters(rf_spec) 
+rf_grid   <- grid_random(rf_params, size = 20)
+
+# tune RF over grid
+rf_tune_res <- tune_grid(
+  rf_wf,
+  resamples = cv_folds,
+  grid      = rf_grid,
+  metrics   = metric_set(rmse, rsq)
+)
+
+# select best set of params by RMSE
+best_rf <- select_best(rf_tune_res, "rmse")
+
+# finalize & fit to full training set
+rf_final_spec <- finalize_model(rf_spec, best_rf)
+rf_final_wf   <- rf_wf %>% update_model(rf_final_spec)
+rf_final_fit  <- fit(rf_final_wf, data = train_df)
+
+# evaluate on test
+rf_pred <- predict(rf_final_fit, test_df) %>% bind_cols(test_df)
+rf_pred %>% metrics(truth = earn_mdn, estimate = .pred)
+```
+
+#–– Variable importance & partial dependence -----------------------------
+```{r}
+# extract fitted ranger object
+ranger_fit <- pull_workflow_fit(rf_final_fit)$fit
+
+# variable importance plot
+vip(ranger_fit) +
+  labs(title = "RF Variable Importance")
+
+# partial‐dependence for pctpell
+pdp::partial(ranger_fit, pred.var = "pctpell", train = train_df) %>%
+  autoplot() +
+  labs(
+    x = "Percent Pell",
+    y = "Predicted median earnings",
+    title = "Partial Dependence: Pell Share"
+  )
+pgsql
+Copy
+```
+
