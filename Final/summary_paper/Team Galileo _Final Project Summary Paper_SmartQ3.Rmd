@@ -1,0 +1,411 @@
+---
+title: "Final Project- Summary Paper"
+author: "Diluni Peiris"
+date: "26/4/2025"
+# date: "`r Sys.Date()`"
+output:
+  html_document:
+    code_folding: hide
+    number_sections: false
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r init, include=FALSE}
+# some of common options (and the defaults) are: 
+# include=T, eval=T, echo=T, results='hide'/'asis'/'markup',..., collapse=F, warning=T, message=T, error=T, cache=T, fig.width=6, fig.height=4, fig.dim=c(6,4) #inches, fig.align='left'/'center','right', 
+library(ezids)
+# knitr::opts_chunk$set(warning = F, results = "markup", message = F)
+knitr::opts_chunk$set(warning = F, results = "hide", message = F)
+options(scientific=T, digits = 3) 
+# options(scipen=9, digits = 3) 
+# ‘scipen’: integer. A penalty to be applied when deciding to print numeric values in fixed or exponential notation.  Positive values bias towards fixed and negative towards scientific notation: fixed notation will be preferred unless it is more than ‘scipen’ digits wider.
+# use scipen=999 to prevent scientific notation at all times
+```
+
+```{r include=FALSE}
+library(car)
+library(ggplot2)
+library(reshape2)
+library(corrplot)
+library(dplyr)
+library(randomForest)
+library(lme4)         
+library(fixest)        
+library(glmnet)       
+library(plotmo)  
+```
+
+# Team Galileo - Final Project Summary Paper
+
+# SMART Q3
+
+**Do online (distance education) programs yield significantly different earnings compared to in-person programs?**
+
+With the rapid growth in online-based education programs, we wanted to analyse if there's a significant difference between the earnings of someone who completed their education online vs onsite.
+
+Reading the cleaned dataset
+
+```{r include=FALSE}
+df <- data.frame(read.csv("cleaned_data.csv"))
+```
+
+### [Dataset Scope]{.underline}
+
+1.  Includes only STEM-based fields.
+
+2\. Contains 1000 institutes across the US.
+
+Distribution of Learning Types
+
+```{r}
+ggplot(df, aes(x = delivery_mode)) +
+  geom_bar( fill = "steelblue") +
+  labs(
+    title = "Distribution of Learning Types",
+    x = "Learning Type"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text( hjust = 1))
+```
+
+### [Data Structure]{.underline}
+
+-   Target Variable: Earnings (post graduation)
+-   Education Type (online vs. in-person)
+-   Control variables:
+    -   Field of study (STEM fields)
+    -   School type (ex, Public, Private-for-profit, Private-not-for-profit, Foreign)
+    -   Level of credential (ex, Undergraduate Diploma to Doctoral Degree)
+    -   The number of Pell Grant recipients of that institute in that particular field.
+
+## Model Selection and Determination
+
+#### Model Introduction
+
+1.  Model without controls
+
+$$
+Earnings \sim DeliveryMode
+$$
+
+This model was built to get an initial understanding of the impact of delivery mode on earnings, isolating it from other effects.
+
+2.  Model with field-level characteristics
+
+$$
+Earnings \sim DeliveryMode + FieldOfStudy
+$$
+
+The earnings can vary based on the field of study, This model was built to understand the effect on delivery mode given the field of study as well.
+
+3.  Model with field-level and institutional characteristics
+
+$$
+Earnings \sim DeliveryMode + FieldOfStudy + SchoolType + LevelOfCredential + NoOfPellGrants 
+$$
+
+The above model controls for other institutional effects that can affect earnings.
+
+4.  Models with Regularization
+
+    4.1 Ridge Regression - To stabilize estimates, as there are many field and institutional level factors.
+
+    4.2 Lasso Regression - To perform feature selection
+
+#### Model Results
+
+```{r}
+#Train test split
+library(caret)
+
+set.seed(123)
+
+# Create partition
+train_index <- createDataPartition(df$earnings, p = 0.7, list = FALSE)
+
+# Split the data
+train_data <- df[train_index, ]
+test_data  <- df[-train_index, ]
+
+```
+
+```{r}
+# 1. Prepare data for regression
+
+# Create model matrix for glmnet (converts factors to dummy variables)
+# Remove the response variable (median_earnings) 
+X <- model.matrix(earnings ~ . , data = df)[,-1]
+y <- df$earnings
+
+# Split data into training and testing sets
+set.seed(123)
+train_indices <- sample(1:nrow(X), 0.8 * nrow(X))
+X_train <- X[train_indices, ]
+y_train <- y[train_indices]
+X_test <- X[-train_indices, ]
+y_test <- y[-train_indices]
+
+
+```
+
+##### 1. Model without controls
+
+```{r}
+model1 <- lm(earnings ~ delivery_mode, data = train_data)
+model1_summary <- summary(model1)
+model1_summary
+
+# Predict values
+model1_predictions <- predict(model1, newdata = test_data)
+
+# Calculate RMSE
+model1_rmse <- sqrt(mean((test_data$earnings - model1_predictions)^2))
+cat("model1 RMSE:", model1_rmse, "\n")
+```
+
+```{r}
+# Extract R-squared and Adjusted R-squared
+r_squared_m1 <- model1_summary$r.squared
+adj_r_squared_m1<- model1_summary$adj.r.squared
+
+# Print values
+cat("R-squared:", r_squared_m1, "\n")
+cat("Adjusted R-squared:", adj_r_squared_m1, "\n")
+
+```
+
+Based on the above model, there is a negative relationship between earnings and delivery mode when most of the credentials are conducted onsite. This gives us an early indication that onsite programs have a negative effect on earnings. The r2 an the adjusted r2 values are quite low, need to add in more variables to the model.
+
+##### 2. Model with field-level characteristics
+
+```{r}
+model2 <- lm(earnings ~ delivery_mode + course_field, data = train_data)
+model2_summary<- summary(model2)
+model2_summary
+
+```
+
+```{r}
+# Extract R-squared and Adjusted R-squared
+r_squared_m2 <- model2_summary$r.squared
+adj_r_squared_m2 <- model2_summary$adj.r.squared
+
+# Print values
+cat("R-squared:", r_squared_m2, "\n")
+cat("Adjusted R-squared:", adj_r_squared_m2, "\n")
+
+```
+
+Even after removing non-stem fields, there were 152 unique fields in the dataset. Adding the field level characteristics brought down the negative coefficient size of the on-site delivery mode variable and only few feilds, such as Optometry and Nursing, had significant coefficients. The r2 and the adjusted r2 values improved from the previous model however, it can improve further.
+
+##### 3. Model with field level + institutional characteristics
+
+```{r}
+model3 <- lm(earnings ~ ., data = train_data)
+model3_summary <-summary(model3)
+model3_summary
+```
+
+```{r}
+# Extract R-squared and Adjusted R-squared
+r_squared_m3 <- model3_summary$r.squared
+adj_r_squared_m3 <- model3_summary$adj.r.squared
+
+# Print values
+cat("R-squared:", r_squared_m3, "\n")
+cat("Adjusted R-squared:", adj_r_squared_m3, "\n")
+```
+
+Significant Variables:
+
+-   Credit level - Undergraduate level is highly significant with a positive effect on earnings while some credit levels, such as first professional degree and graduate/ professional certificate, has a negetive relationship with earnings.
+
+-   School Type- Public and private for profits schools have a negative relationship with earnings
+
+-   No. of Pell Grants - This variable has a positive relationship with earnings.
+
+**Delivery_mode: All credentials online** - The coefficient of this variable is not significant in this model; however it seems to have a small negative effect on earnings.
+
+##### 4. Regularization
+
+1.  Ridge Regression
+
+```{r}
+# 1. Prepare data for regularized regression
+
+# Create model matrix for glmnet (converts factors to dummy variables)
+# Remove the response variable (median_earnings) 
+X <- model.matrix(earnings ~ . , data = df)[,-1]
+y <- df$earnings
+
+# Split data into training and testing sets
+set.seed(123)
+train_indices <- sample(1:nrow(X), 0.8 * nrow(X))
+X_train <- X[train_indices, ]
+y_train <- y[train_indices]
+X_test <- X[-train_indices, ]
+y_test <- y[-train_indices]
+
+# Ridge Regression
+
+# Finding optimal lambda using cross-validation
+set.seed(123)
+ridge_cv <- cv.glmnet(X_train, y_train, alpha = 0, nfolds = 10)
+plot(ridge_cv)
+
+# Best lambda value
+best_lambda_ridge <- ridge_cv$lambda.min
+cat("Best lambda for ridge regression:", best_lambda_ridge, "\n")
+
+# Fit ridge model with optimal lambda
+ridge_model <- glmnet(X_train, y_train, alpha = 0, lambda = best_lambda_ridge)
+print(ridge_model)
+
+# Get coefficients
+ridge_coefs <- coef(ridge_model)
+ridge_coefs_df <- data.frame(
+  feature = rownames(ridge_coefs),
+  coefficient = as.vector(ridge_coefs)
+) %>%
+  filter(coefficient != 0) %>%
+  arrange(desc(abs(coefficient)))
+
+print(ridge_coefs_df)
+
+# Visualize top coefficients
+ridge_coefs_df %>%
+  filter(feature != "(Intercept)") %>%
+  top_n(15, abs(coefficient)) %>%
+  ggplot(aes(x = reorder(feature, abs(coefficient)), y = coefficient)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "Top Ridge Regression Coefficients",
+       x = "Feature",
+       y = "Coefficient Value") +
+  theme_minimal()
+
+# Evaluate ridge model on test data
+ridge_predictions <- predict(ridge_model, newx = X_test)
+ridge_rmse <- sqrt(mean((y_test - ridge_predictions)^2))
+cat("Ridge Regression RMSE:", ridge_rmse, "\n")
+
+
+```
+
+-   Used the optimal lambda value after cross-validation.
+
+-   The plot above shows the top coefficients.
+
+```         
+delivery_modeMost credentials onsite                                                           -1.374220e+02
+```
+
+The ridge model also gives you a negative coefficient for credentials completed onsite.
+
+```         
+```
+
+2.  Lasso Regression
+
+```{r}
+# Find optimal lambda using cross-validation
+set.seed(123)
+lasso_cv <- cv.glmnet(X_train, y_train, alpha = 1, nfolds = 10)
+plot(lasso_cv)
+
+# Best lambda value
+best_lambda_lasso <- lasso_cv$lambda.min
+cat("Best lambda for lasso regression:", best_lambda_lasso, "\n")
+
+# Fit lasso model with optimal lambda
+lasso_model <- glmnet(X_train, y_train, alpha = 1, lambda = best_lambda_lasso)
+print(lasso_model)
+
+# Get coefficients - lasso will zero out some coefficients
+lasso_coefs <- coef(lasso_model)
+lasso_coefs_df <- data.frame(
+  feature = rownames(lasso_coefs),
+  coefficient = as.vector(lasso_coefs)
+) %>%
+  filter(coefficient != 0) %>%
+  arrange(desc(abs(coefficient)))
+
+print(lasso_coefs_df)
+
+# Visualize non-zero coefficients
+lasso_coefs_df %>%
+  filter(feature != "(Intercept)") %>%
+  ggplot(aes(x = reorder(feature, abs(coefficient)), y = coefficient)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "Non-Zero Lasso Regression Coefficients",
+       subtitle = "Variables selected by lasso as important predictors",
+       x = "Feature",
+       y = "Coefficient Value") +
+  theme_minimal()
+
+# Evaluate lasso model on test data
+lasso_predictions <- predict(lasso_model, newx = X_test)
+lasso_rmse <- sqrt(mean((y_test - lasso_predictions)^2))
+cat("Lasso Regression RMSE:", lasso_rmse, "\n")
+```
+
+```{r}
+# Count non-zero coefficients (excluding intercept)
+n_nonzero <- sum(lasso_coefs[-1,] != 0)
+n_total <- length(lasso_coefs) - 1  # Subtract 1 for intercept
+n_dropped <- n_total - n_nonzero
+
+cat("Total variables:", n_total, "\n")
+cat("Variables retained:", n_nonzero, "\n")
+cat("Variables dropped:", n_dropped, "\n")
+cat("Percentage dropped:", round(n_dropped/n_total*100, 1), "%\n")
+
+```
+
+-   Used the optimal lambda value after cross-validation.
+
+-   The lasso model dropped 40.7% of the variables from the model. According to the model, some of the field-level variables were the top contributors to earnings.
+
+## Reliability and Model Evaluation
+
+```{r}
+model_comparison <- data.frame(
+  model = c("Ridge", "Lasso", "model1","model2","model3"),
+  rmse = c(ridge_rmse, lasso_rmse, model1_rmse, NA, NA),
+  r2 = c(NA,NA , r_squared_m1, r_squared_m2, r_squared_m3),
+  Adj_r2 = c(NA, NA, adj_r_squared_m1, adj_r_squared_m2, adj_r_squared_m3)
+)
+model_comparison
+
+library(knitr)
+library(kableExtra)
+
+kable(model_comparison, digits = 3, caption = "Model Performance Comparison") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+-   The above table summarizes the model performance across the different models, comparing the RMSE values of the models its clear that the lasso model has the smallest error and based on the models built it best predicts the revenue.
+
+-   In terms of the smart question, **Do online (distance education) programs yield significantly different earnings compared to in-person programs?** several models initially revealed a surprising negative relationship between in-person learning and earnings. However, as additional control variables were introduced, this relationship became less statistically significant, suggesting that the initial effect may have been confounded by other factors.
+
+```         
+
+
+
+```
+
+SMART QUESTION 1:  Can earnings be predicted by field, degree, and aid?
+
+For this SMART question, we utilized a few key variables to assess if field, degree, or aid could predict earnings post-graduation. These variables were field level (area of specialization or field of study essentially), credit level (what level of degree is being completed-- eg. master's, bachelor's, master's certificate, etc.), school type (public, private, etc.), and number of pell grants received. After running a linear model, it was determined that there was not much correlation between the field level and earnings surprisingly. It was initially predicted that this would play a significant role in controlling earnings, specifically for majors like business or STEM-related topics. However, it proved to be statistically insignificant across the board, with only a few scattered fields having significant p-values. Credit level and school type proved to be statistically significant, so we reran the model with just those as predictors and it showed correlation between these variables and the chances of receiving a pell grant. Surprisingly, it didn't necessarily show that the higher up the degree guaranteed more earnings. This could be due to the fact that master's degrees often are required in fields like academia, where pay may be lower. Additionally, pell grants are federally funded and the means by which they are issued can differ depending on degree. These various external factors could have affected the results here. Ultimately, this model indicated that credit level and type of schooling in general play a role in money received.   
+
+
